@@ -1,0 +1,2152 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="color-scheme" content="dark">
+<title>KERB LAB v3 — the rig</title>
+<style>
+:root{
+  --bg:#0a0c10; --panel:#12161d; --panel2:#171d26; --line:#242c38;
+  --ink:#e8edf4; --dim:#8d98a8; --dim2:#5f6b7c;
+  --acc:#4ade80; --acc2:#22d3ee; --warn:#fbbf24; --bad:#f87171; --ghost:#a78bfa;
+  --r:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--ink);
+  font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  display:flex;flex-direction:column;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+/* ---------- top strip ---------- */
+#top{display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto;flex-wrap:wrap}
+#brand{font-weight:700;letter-spacing:.14em;font-size:11px;color:var(--dim)}
+#brand b{color:var(--acc)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{padding:4px 9px;font-size:11px;color:var(--dim);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--acc);color:#04120a;font-weight:700}
+.pill{padding:4px 9px;border:1px solid var(--line);border-radius:8px;font-size:11px;color:var(--dim)}
+.pill[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
+#spacer{flex:1}
+
+/* ---------- stage ---------- */
+#stage{position:relative;flex:1 1 auto;min-height:0;background:#070a0e;
+  outline:none;touch-action:none}
+#stage:focus-visible::after,#stage.kb::after{content:"";position:absolute;inset:2px;
+  border:2px solid var(--acc2);border-radius:6px;pointer-events:none;opacity:.65}
+#cv{display:block;width:100%;height:100%}
+
+/* live readout, always on screen */
+#hud{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:3px;
+  font-family:var(--mono);font-size:11px;pointer-events:none;text-shadow:0 1px 3px #000}
+#hud div{display:flex;gap:6px;pointer-events:auto;cursor:help;width:max-content}
+#hud i{font-style:normal;color:var(--dim2);width:52px;display:inline-block}
+#hud b{font-weight:700}
+#phase{position:absolute;left:50%;top:8px;transform:translateX(-50%);
+  font-weight:800;letter-spacing:.16em;font-size:13px;color:var(--acc);
+  pointer-events:auto;cursor:help;text-shadow:0 1px 4px #000;text-align:center;white-space:nowrap}
+#cue{position:absolute;left:50%;top:28px;transform:translateX(-50%);max-width:min(92%,560px);
+  text-align:center;font-size:12px;color:var(--ink);opacity:.9;pointer-events:none;
+  text-shadow:0 1px 4px #000}
+#verdict{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-weight:800;font-size:clamp(18px,5vw,30px);letter-spacing:.06em;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .18s;text-shadow:0 2px 12px #000}
+#verdict small{display:block;font-size:13px;font-weight:500;letter-spacing:0;opacity:.85;margin-top:4px}
+
+/* touch steer zones */
+.tz{position:absolute;top:0;bottom:44px;width:22%;display:none;
+  align-items:center;justify-content:center;user-select:none}
+.tz span{font-family:var(--mono);font-size:11px;color:var(--dim2);
+  writing-mode:vertical-rl;letter-spacing:.2em}
+#tzL{left:0}#tzR{right:0}
+.tz.on{background:linear-gradient(90deg,rgba(74,222,128,.16),transparent)}
+#tzR.on{background:linear-gradient(270deg,rgba(74,222,128,.16),transparent)}
+
+/* keyboard rail */
+#rail{position:absolute;right:8px;top:8px;bottom:8px;display:flex;flex-direction:column;gap:2px;
+  max-height:calc(100% - 16px);overflow-y:auto;scrollbar-width:none;
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);pointer-events:none;
+  text-align:right;text-shadow:0 1px 3px #000}
+#rail k{display:inline-block;min-width:15px;padding:0 3px;margin-left:5px;
+  border:1px solid var(--line);border-radius:3px;background:#0e1218;color:var(--ink)}
+#rail k.hot{background:var(--acc);color:#04120a;border-color:var(--acc)}
+#rail k.alt{opacity:.45;margin-left:2px}
+#rail::-webkit-scrollbar{display:none}
+#rail .hd{color:var(--dim2);margin-top:5px;letter-spacing:.12em}
+#rail>div{pointer-events:auto;cursor:help}
+#rail>div.hd{pointer-events:none;cursor:default}
+
+/* ---------- timeline ---------- */
+#tl{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:5px 10px;
+  border-top:1px solid var(--line);background:var(--panel)}
+#tlbar{position:relative;flex:1;height:22px;border-radius:5px;background:#0b0f15;
+  border:1px solid var(--line);overflow:hidden;cursor:pointer;touch-action:none}
+#tlfill{position:absolute;left:0;top:0;bottom:0;background:rgba(74,222,128,.18)}
+#tlghost{position:absolute;top:0;bottom:0;background:rgba(167,139,250,.14)}
+#tlhead{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--acc)}
+#tlmarks{position:absolute;inset:0;pointer-events:none}
+#tlmarks i{position:absolute;top:0;bottom:0;width:1px;background:var(--dim2);opacity:.55}
+#tlmarks i.d{background:var(--warn);opacity:.9}
+#tllab{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:88px;text-align:right}
+
+/* ---------- dock ---------- */
+#dock{flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+  padding:7px 10px;display:flex;flex-direction:column;gap:7px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.knob{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);
+  background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px 7px}
+.knob input[type=range]{width:104px;accent-color:var(--acc);height:18px}
+.knob b{font-family:var(--mono);color:var(--ink);min-width:46px;text-align:right}
+.btn{padding:5px 11px;border:1px solid var(--line);border-radius:8px;font-size:12px;
+  background:var(--panel2);color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn.p{background:var(--acc);color:#04120a;font-weight:700;border-color:var(--acc)}
+.btn.g{background:transparent;color:var(--dim)}
+.btn k{font-family:var(--mono);font-size:10px;opacity:.6;margin-left:5px}
+#drive{display:none;gap:7px}
+#drive .big{flex:1;padding:13px 0;text-align:center;font-weight:700;font-size:13px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+#drive .big.on{background:var(--acc);color:#04120a}
+
+/* ---------- accordions ---------- */
+#more{flex:0 0 auto;max-height:44vh;overflow-y:auto;background:var(--bg);
+  border-top:1px solid var(--line);-webkit-overflow-scrolling:touch}
+details{border-bottom:1px solid var(--line)}
+summary{padding:9px 12px;font-size:12px;color:var(--dim);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸";color:var(--dim2);font-size:10px;transition:transform .15s}
+details[open] summary::before{transform:rotate(90deg)}
+details[open] summary{color:var(--ink)}
+.body{padding:0 12px 12px;font-size:13px;color:#c3ccd8;max-width:74ch}
+.body p{margin:0 0 9px}
+.body h4{margin:12px 0 5px;font-size:12px;letter-spacing:.1em;color:var(--acc);font-weight:700}
+.body code,.k{font-family:var(--mono);font-size:12px;background:#0d1116;border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:var(--acc2)}
+.body ul{margin:0 0 9px;padding-left:18px}
+.body li{margin:0 0 4px}
+table{border-collapse:collapse;font-size:12px;width:100%;margin:0 0 10px;font-family:var(--mono)}
+th,td{border:1px solid var(--line);padding:4px 7px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--dim);font-weight:600;background:var(--panel2)}
+.note{border-left:2px solid var(--warn);padding:5px 0 5px 10px;color:#d8c9a3;margin:0 0 10px}
+
+/* ---------- modal ---------- */
+#modal{position:fixed;inset:0;background:rgba(4,6,10,.86);display:none;
+  align-items:center;justify-content:center;padding:16px;z-index:50}
+#modal.on{display:flex}
+#mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:16px;max-width:640px;width:100%;max-height:86vh;overflow:auto}
+#mbox h3{margin:0 0 10px;font-size:13px;letter-spacing:.12em;color:var(--acc)}
+.kg{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px;align-items:center}
+.kg span:nth-child(odd){font-family:var(--mono);color:var(--acc2);white-space:nowrap}
+.kg span:nth-child(even){color:var(--dim)}
+.kg .kh{grid-column:1/-1;font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  letter-spacing:.14em;margin-top:8px;border-bottom:1px solid var(--line);padding-bottom:3px}
+.kg span i{font-style:normal;opacity:.45}
+.kg span.kk{font-family:var(--mono);color:var(--acc2);white-space:nowrap}
+.kg span.kd{color:var(--dim)}
+#predict{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+
+#btnNotes{display:none}
+@media (max-width:820px){
+  #rail{display:none}
+  #more{display:none}
+  #btnNotes{display:inline-block}
+  .tz{display:flex}
+  #drive{display:flex}
+  #more{max-height:38vh}
+  .knob input[type=range]{width:82px}
+}
+@media (max-width:430px){
+  #brand{display:none}
+  .knob{font-size:10px;padding:2px 6px}
+  #hud{font-size:10px}
+}
+.i{width:1em;height:1em;display:inline-block;vertical-align:-0.13em;flex:0 0 auto}
+#rail k .i,.kg .i{width:1.05em;height:1.05em;vertical-align:-0.17em}
+.big .i{width:1.15em;height:1.15em;vertical-align:-0.18em}
+
+/* ---------- tooltips ---------- */
+#tip{position:fixed;z-index:80;max-width:300px;padding:8px 10px;border-radius:8px;
+  background:rgba(13,18,24,.97);border:1px solid #2a3542;color:#c7d0dc;
+  font-size:11.5px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.6);
+  pointer-events:none;opacity:0;transform:translateY(3px);
+  transition:opacity .11s ease,transform .11s ease}
+#tip.on{opacity:1;transform:none}
+#tip b{color:var(--acc);font-weight:600}
+#tip i{color:var(--ink);font-style:italic}
+#tip .m{display:block;margin-top:5px;font-family:var(--mono);font-size:10.5px;
+  color:var(--acc2);white-space:pre-wrap}
+@media (hover:none){#tip{display:none}}
+/* ---------- context menu ---------- */
+#ctx{position:fixed;z-index:90;display:none;flex-direction:column;min-width:190px;padding:4px;
+  background:rgba(13,18,24,.98);border:1px solid #2a3542;border-radius:8px;
+  box-shadow:0 14px 36px rgba(0,0,0,.65)}
+#ctx.on{display:flex}
+#ctx button{all:unset;padding:7px 10px;border-radius:5px;font-size:11px;letter-spacing:.06em;
+  color:var(--ink);cursor:pointer;white-space:nowrap}
+#ctx button:hover{background:#1b2531;color:var(--acc)}
+#stage{touch-action:none}
+</style></head>
+<body>
+<svg id="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+<symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3.4M3.9 7.5 8 3.2l4.1 4.3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-dn" viewBox="0 0 16 16"><path d="M8 3v9.6M3.9 8.5 8 12.8l4.1-4.3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-lf" viewBox="0 0 16 16"><path d="M13 8H3.4M7.5 3.9 3.2 8l4.3 4.1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-rt" viewBox="0 0 16 16"><path d="M3 8h9.6M8.5 3.9 12.8 8l-4.3 4.1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-play" viewBox="0 0 16 16"><path d="M4.5 3.2 13 8l-8.5 4.8z" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+<symbol id="i-rew" viewBox="0 0 16 16"><path d="M13 3.4 6.6 8 13 12.6z" fill="currentColor"/><path d="M3.6 3.2v9.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+<symbol id="i-rot" viewBox="0 0 16 16"><path d="M13 8A5 5 0 1 1 4.46 4.46" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M3.75 7.43 4.46 4.46 1.49 5.17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-shift" viewBox="0 0 16 16"><path d="M8 2.2 13.4 8H10.7v5.4H5.3V8H2.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-space" viewBox="0 0 16 16"><path d="M2.5 6v4h11V6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-help" viewBox="0 0 16 16"><path d="M5.7 5.9a2.4 2.4 0 1 1 2.6 2.5v1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.3" cy="12.6" r="1" fill="currentColor"/></symbol>
+</svg>
+
+<div id="top">
+  <div id="brand">KERB <b>LAB</b> v3</div>
+  <div class="seg" id="modeSeg">
+    <button data-mode="drive" aria-pressed="true" data-tip="You drive. Nothing is shown that you have not earned — the machine line is hidden here on purpose.">DRIVE</button>
+    <button data-mode="compare" aria-pressed="false" data-tip="Your run with the machine ghosted over it, synced by <b>metres driven</b>, not by clock. The dashed link shows how far apart you are at the same point in the manoeuvre.">COMPARE</button>
+    <button data-mode="predict" aria-pressed="false" data-tip="The machine drives and stops at every wheel decision to ask what you would do. Being wrong here is worth more than watching ten perfect parks.">PREDICT</button>
+    <button data-mode="watch" aria-pressed="false" data-tip="Pure demonstration. Deliberately the weakest mode: watching a clean park feels like learning and mostly is not.">WATCH</button>
+  </div>
+  <div class="seg" id="polSeg">
+    <button data-pol="margin" aria-pressed="true" data-tip="Picks the line with the most metal-to-metal clearance. The one to copy when the slot is tight and your nerve is not.">MAX-MARGIN</button>
+    <button data-pol="minmoves" aria-pressed="false" data-tip="Fewest direction changes, clearance be damned. Fast, and unforgiving of a sloppy start.">MIN-MOVES</button>
+    <button data-pol="textbook" aria-pressed="false" data-tip="The driving-school 45°. Correct often enough to be taught, wrong often enough to strand people — press <b>B</b> and see where 45° actually sits in the band.">45°</button>
+    <button data-pol="shuffle" aria-pressed="false" data-tip="Pure lock-to-lock shuffling from parallel. Gains roughly L²/2R per cycle — the tool for a slot below the one-move minimum.">SHUFFLE</button>
+    <button data-pol="myth" aria-pressed="false" data-tip="&quot;Reverse until your wing mirror lines up, then straighten.&quot; Watch where it finishes. That is the folklore, run honestly.">THE MYTH</button>
+  </div>
+  <div id="spacer"></div>
+  <button class="pill" id="btnPrev" aria-pressed="true" data-tip="Dashed ghost of where a full unwind from this instant lands you. An aid to be faded: switch it off once you can call the flip yourself.">FLIP</button>
+  <button class="pill" id="btnHint" aria-pressed="true" data-tip="Re-solves the optimal remaining line from your current pose whenever you stop. Not from the start — from the mess you are actually in.">LINE</button>
+  <button class="pill" id="btnEnv" aria-pressed="false" data-tip="Every square metre your body passes through. This is the area that must be empty, not the parking space.">ENV</button>
+  <button class="pill" id="btnBand" aria-pressed="false" data-tip="Draws every approach angle that parks from this start pose. Its width is the whole argument against memorising one magic number.">θ</button>
+  <button class="pill" id="btnRot" aria-pressed="false" data-tip="Portrait road — kerb on the left, traffic running up the screen. Matches how the manoeuvre looks over your shoulder. Remembered between sessions."><svg class="i"><use href="#i-rot"/></svg></button>
+  <button class="pill" id="btnNotes" data-tip="The written notes: the equation, the failure modes, the numbers for your car.">NOTES</button>
+  <button class="pill" id="btnHelp" data-tip="Every key, one sheet. Also on <b>?</b>."><svg class="i"><use href="#i-help"/></svg></button>
+</div>
+
+<div id="stage" tabindex="0">
+  <canvas id="cv"></canvas>
+  <div id="hud"></div>
+  <div id="phase" data-tip="Which part of the manoeuvre the rig thinks you are in, read from your gear and your steering — not from a script."></div>
+  <div id="cue"></div>
+  <div id="verdict"></div>
+  <div class="tz" id="tzL"><span>LOCK LEFT</span></div>
+  <div class="tz" id="tzR"><span>LOCK KERB</span></div>
+  <div id="rail"></div>
+</div>
+
+<div id="tl">
+  <button class="btn g" id="btnRew" data-tip="Jump back to your last direction change and carry on from there. Re-running one decision beats re-running the whole park."><svg class="i"><use href="#i-rew"/></svg><k>⌫</k></button>
+  <div id="tlbar" data-tip="Your run, scrubbable by distance travelled. Drag it, or shuttle with <b>J</b>/<b>L</b> and step frames with <b>,</b>/<b>.</b> Ticks mark direction changes; red ticks mark contacts."><div id="tlfill"></div><div id="tlghost"></div><div id="tlmarks"></div><div id="tlhead"></div></div>
+  <div id="tllab">0.00 m</div>
+</div>
+
+<div id="dock">
+  <div class="row">
+    <label class="knob" data-tip="Slot length. Drag it below the one-move minimum and the θ band vanishes — the slot is still parkable, just not in one line.">GAP<input type="range" id="sGap" min="0.55" max="3.20" step="0.05"><b id="vGap"></b></label>
+    <label class="knob" data-tip="How far your flank sits from theirs at the start. Too close and your nose swings into them; too far and no angle in the band reaches the kerb.">OUT<input type="range" id="sOut" min="0.50" max="1.60" step="0.05"><b id="vOut"></b></label>
+    <label class="knob" data-tip="The angle you are aiming for. It sets the start pose and the cue line only — the physics does not reward you for hitting it. Click the number when it reads OUT to re-centre it in the band.">θ*<input type="range" id="sAng" min="15" max="60" step="1"><b id="vAng"></b></label>
+    <select class="btn" id="selCar" data-tip="Wheelbase, overhangs and lock all change R = p / tan δ — and with it every number on this screen. Park one car well, then transfer."></select>
+    <button class="btn p" id="btnReset" data-tip="Back to the start pose. Your clean streak survives a reset; it does not survive a contact.">RESET<k>R</k></button>
+    <button class="btn" id="btnPlay" data-tip="Play or pause the machine run."><svg class="i"><use href="#i-play"/></svg> AI<k>P</k></button>
+    <span id="subMin" style="font-size:11px;color:var(--dim)"></span>
+  </div>
+  <div class="row" id="drive">
+    <button class="big" id="bRev" data-tip="Hold to reverse."><svg class="i"><use href="#i-lf"/></svg> REVERSE</button>
+    <button class="big" id="bBite" data-tip="One 25 cm bite backwards.">BITE <svg class="i"><use href="#i-lf"/></svg></button>
+    <button class="big" id="bFwd" data-tip="Hold to move forward.">FORWARD <svg class="i"><use href="#i-rt"/></svg></button>
+  </div>
+</div>
+
+<div id="more"></div>
+
+<div id="modal"><div id="mbox"></div></div>
+
+<script>
+/* KERB LAB v3 — geometry + planner core (shared verbatim with the page) */
+var KERB_OFF=0.30, PW=1.78, PL=4.50;
+var PRESETS=[
+ {n:"supermini",L:3.98,W:1.75,p:2.55,r:0.72,T:10.0,tr:1.50},
+ {n:"hatch",    L:4.28,W:1.79,p:2.62,r:0.80,T:10.9,tr:1.54},
+ {n:"saloon",   L:4.71,W:1.83,p:2.85,r:0.95,T:11.4,tr:1.57},
+ {n:"midSUV",   L:4.62,W:1.86,p:2.68,r:0.90,T:11.4,tr:1.60},
+ {n:"lgSUV",    L:4.92,W:2.00,p:2.98,r:1.02,T:12.3,tr:1.68},
+ {n:"vanSWB",   L:4.86,W:2.06,p:2.93,r:0.95,T:12.4,tr:1.72},
+ {n:"vanLWB",   L:5.98,W:2.07,p:3.75,r:1.15,T:14.8,tr:1.75}
+];
+var CAR={L:4.28,W:1.79,p:2.62,rear:0.80,track:1.54,T:10.9,front:0.86,dmax:0,R:4.0};
+function recompute(){
+  CAR.front=Math.max(0.35,CAR.L-CAR.rear-CAR.p);
+  var Rfw=CAR.T/2,R;
+  if(CAR.T>0&&Rfw>CAR.p*1.05) R=Math.sqrt(Math.max(0.01,Rfw*Rfw-CAR.p*CAR.p))-CAR.track/2;
+  else R=1.55*CAR.p;
+  CAR.R=Math.max(2.4,R); CAR.dmax=Math.atan(CAR.p/CAR.R);
+}
+var D=function(x){return x*180/Math.PI;}, Rad=function(x){return x*Math.PI/180;};
+function corners(x,y,th,c){
+  c=c||CAR; var co=Math.cos(th),si=Math.sin(th),h=c.W/2;
+  var P=[[c.p+c.front,h],[c.p+c.front,-h],[-c.rear,-h],[-c.rear,h]];
+  return P.map(function(q){return [x+q[0]*co-q[1]*si, y+q[0]*si+q[1]*co];});
+}
+function stepPose(s,ds,delta,c){
+  c=c||CAR; var x=s[0],y=s[1],th=s[2];
+  if(Math.abs(delta)<1e-9) return [x+ds*Math.cos(th), y+ds*Math.sin(th), th];
+  var R=c.p/Math.tan(delta), dth=ds/R, cx=x-R*Math.sin(th), cy=y+R*Math.cos(th), t2=th+dth;
+  return [cx+R*Math.sin(t2), cy-R*Math.cos(t2), t2];
+}
+function overlap(A,B){
+  for(var k=0;k<2;k++){var P=k?B:A;
+    for(var i=0;i<P.length;i++){
+      var q=P[(i+1)%P.length], ex=q[0]-P[i][0], ey=q[1]-P[i][1], L=Math.hypot(ex,ey);
+      var ax=-ey/L, ay=ex/L, a0=1e9,a1=-1e9,b0=1e9,b1=-1e9,j,d;
+      for(j=0;j<A.length;j++){d=A[j][0]*ax+A[j][1]*ay; if(d<a0)a0=d; if(d>a1)a1=d;}
+      for(j=0;j<B.length;j++){d=B[j][0]*ax+B[j][1]*ay; if(d<b0)b0=d; if(d>b1)b1=d;}
+      if(a1<b0-1e-9||b1<a0-1e-9) return false;
+    }}
+  return true;
+}
+function obstacles(slot){
+  return [[[-0.05-PL,KERB_OFF],[-0.05,KERB_OFF],[-0.05,KERB_OFF+PW],[-0.05-PL,KERB_OFF+PW]],
+          [[slot+0.05,KERB_OFF],[slot+0.05+PL,KERB_OFF],[slot+0.05+PL,KERB_OFF+PW],[slot+0.05,KERB_OFF+PW]]];
+}
+function segDist(p,a,b){var vx=b[0]-a[0],vy=b[1]-a[1],L2=vx*vx+vy*vy||1e-9;
+  var t=((p[0]-a[0])*vx+(p[1]-a[1])*vy)/L2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(p[0]-(a[0]+t*vx),p[1]-(a[1]+t*vy));}
+function polyDist(P,Q){var m=1e9,i,j;
+  for(i=0;i<P.length;i++) for(j=0;j<Q.length;j++) m=Math.min(m,segDist(P[i],Q[j],Q[(j+1)%Q.length]));
+  for(i=0;i<Q.length;i++) for(j=0;j<P.length;j++) m=Math.min(m,segDist(Q[i],P[j],P[(j+1)%P.length]));
+  return m;}
+function flankPoint(x,y,th){return [x+(CAR.W/2)*Math.sin(th), y-(CAR.W/2)*Math.cos(th)];}
+function flankGap(x,y,th){var C=corners(x,y,th),m=flankPoint(x,y,th)[1];
+  for(var i=0;i<4;i++) if(C[i][1]<m) m=C[i][1]; return m;}
+function frontOuter(x,y,th){var C=corners(x,y,th); return C[0][1]>C[1][1]?C[0]:C[1];}
+function clearanceAt(x,y,th,OB){
+  var C=corners(x,y,th), m=flankGap(x,y,th);
+  for(var i=0;i<OB.length;i++) m=Math.min(m,polyDist(C,OB[i]));
+  return m;
+}
+function shuffleGain(L){var a=4*CAR.R*CAR.R-L*L; if(a<=0) return 4*CAR.R; return 2*(2*CAR.R-Math.sqrt(a));}
+
+/* ------------------------------------------------------------------ *
+ * segment simulator.  seg = {gear:±1, steer:-1|0|1, len} | {turn:s}
+ * ------------------------------------------------------------------ */
+function simulate(start,segs,slot,opt){
+  opt=opt||{};
+  var OB=obstacles(slot), DS=0.02;
+  var x=start[0],y=start[1],th=start[2],delta=(start[3]||0);
+  var out={samples:[],events:[],contact:null,contactPt:null,moves:0,dist:0,minClr:1e9};
+  var lastGear=0;
+  function push(g){out.samples.push([x,y,th,delta,g,out.dist]);}
+  push(0);
+  for(var si=0;si<segs.length;si++){
+    var sg=segs[si];
+    if(sg.turn!==undefined){
+      delta=sg.turn*CAR.dmax;
+      out.events.push({i:out.samples.length,type:'turn',v:sg.turn,s:out.dist,
+        text:sg.turn<0?'wheel → full lock TOWARD kerb':(sg.turn>0?'wheel → full lock AWAY from kerb':'wheel → straight')});
+      push(0);
+      continue;
+    }
+    if(sg.note) out.events.push({i:out.samples.length,type:'note',s:out.dist,text:sg.note});
+    if(lastGear!==0&&sg.gear!==lastGear) out.moves++;
+    lastGear=sg.gear;
+    var trav=0, guard=0;
+    while(trav<sg.len-1e-9&&guard++<200000){
+      var step=Math.min(DS,sg.len-trav);
+      var n=stepPose([x,y,th],sg.gear*step,delta);
+      x=n[0];y=n[1];th=n[2];trav+=step;out.dist+=step;
+      var C=corners(x,y,th), fp=flankPoint(x,y,th), hit=null,pt=null,i;
+      if(fp[1]<0){hit='kerb';pt=fp;}
+      for(i=0;i<4&&!hit;i++) if(C[i][1]<0){hit='kerb';pt=C[i];}
+      if(!hit){ if(overlap(C,OB[0])){hit='the car behind';pt=C[2];}
+                else if(overlap(C,OB[1])){hit='the car ahead';pt=frontOuter(x,y,th);} }
+      out.minClr=Math.min(out.minClr,clearanceAt(x,y,th,OB));
+      push(sg.gear);
+      if(hit){out.contact=hit;out.contactPt=pt;return out;}
+      if(sg.until&&sg.until(x,y,th)) break;
+    }
+  }
+  return out;
+}
+function finalState(tr){var s=tr.samples[tr.samples.length-1];return {x:s[0],y:s[1],th:s[2]};}
+function scoreTraj(tr,slot,targetY){
+  var f=finalState(tr), C=corners(f.x,f.y,f.th);
+  var gap=flankGap(f.x,f.y,f.th), ang=Math.abs(D(f.th));
+  var inSlot=C.every(function(p){return p[0]>-0.10&&p[0]<slot+0.10;});
+  var ok=!tr.contact&&inSlot&&ang<5&&gap>0.15&&gap<0.45;
+  return {ok:ok,gap:gap,ang:ang,inSlot:inSlot,moves:tr.moves,minClr:tr.minClr,dist:tr.dist};
+}
+
+/* ---------------- planners ---------------- */
+function targetY(){return KERB_OFF+CAR.W/2;}
+function slotXWindow(slot){return [0.12+CAR.rear, slot-0.12-CAR.p-CAR.front];}
+
+/* canonical arc–straight–arc from an arbitrary start, with optional longitudinal pre-move */
+function planCanonical(start,slot,thd,allowAdjust){
+  var t=Rad(thd), d=start[1]-targetY(), R=CAR.R;
+  if(d<=0.02) return null;
+  var arc=2*R*(1-Math.cos(t));
+  if(arc>d+1e-9) return null;
+  var s=(d-arc)/Math.sin(t);
+  var X=2*R*Math.sin(t)+s*Math.cos(t);
+  var fx=start[0]-X, win=slotXWindow(slot);
+  if(win[1]<win[0]) return null;
+  var adjust=0;
+  if(fx<win[0]) adjust=win[0]-fx; else if(fx>win[1]) adjust=win[1]-fx;
+  if(Math.abs(adjust)>0.02&&!allowAdjust) return null;
+  var segs=[];
+  if(Math.abs(adjust)>0.02) segs.push({gear:adjust>0?1:-1,steer:0,len:Math.abs(adjust),
+    note:'reposition '+(adjust>0?'forward':'back')+' '+adjust.toFixed(2).replace('-','')+' m so the finish lands inside the gap'});
+  segs.push({turn:-1});
+  segs.push({gear:-1,steer:-1,len:R*t,note:'BUY ANGLE — full lock toward the kerb to '+thd+'°'});
+  segs.push({turn:0});
+  if(s>0.02) segs.push({gear:-1,steer:0,len:s,note:'SPEND ANGLE — straight back '+s.toFixed(2)+' m (1 m of slot buys sin'+thd+'° = '+Math.sin(t).toFixed(2)+' m of lateral)'});
+  segs.push({turn:1});
+  segs.push({gear:-1,steer:1,len:R*t,note:'UNWIND — full lock away; this repays exactly the U = '+(R*(1-Math.cos(t))).toFixed(2)+' m you must still have been holding'});
+  segs.push({turn:0});
+  return {segs:segs,theta:thd,s:s,adjust:adjust};
+}
+/* shuffle cycles: 4 arcs, wheel flipped stationary.
+   Two independent ceilings on the excursion L:
+     - longitudinal room between the two parked cars
+     - NOSE DIP: the forward half of the bracket must steer toward the kerb, which
+       swings the kerb-side front corner (p+front)·sin φ closer to the kerb.
+   The second ceiling is the binding one once you are already close, and it is why
+   the yield collapses as you approach — a fact neither v1 nor v2 states. */
+function shuffleCycle(L){
+  var phi=Math.asin(Math.min(0.98,L/(2*CAR.R))), a=CAR.R*phi;
+  return [{turn:-1},{gear:-1,steer:-1,len:a},{turn:1},{gear:-1,steer:1,len:a},
+          {turn:-1},{gear:1,steer:-1,len:a},{turn:1},{gear:1,steer:1,len:a},{turn:0}];
+}
+function noseLimitL(gapNow,margin){
+  var s=(gapNow-(margin===undefined?0.05:margin))/(CAR.p+CAR.front);
+  if(s<=0.004) return 0;
+  return 2*CAR.R*Math.min(0.35,s);
+}
+function maxExcursion(x,gapNow,slot){
+  var win=slotXWindow(slot);
+  return Math.max(0,Math.min(win[1]-x, x-win[0], noseLimitL(gapNow), 1.20));
+}
+/* iterative: recompute the legal excursion every cycle as the gap closes */
+function planShuffleIterative(start,slot,targetGap,maxCycles){
+  targetGap=targetGap||0.28; maxCycles=maxCycles||16;
+  var segs=[],pose=[start[0],start[1],start[2]],n=0,first=true;
+  while(n<maxCycles){
+    var g=flankGap(pose[0],pose[1],pose[2]);
+    if(g<=targetGap+0.04) break;
+    var L=maxExcursion(pose[0],g,slot);
+    if(L<0.10) break;
+    var gain=shuffleGain(L);
+    if(g-gain<targetGap-0.06){ // final part-cycle: shrink L so we land on target, not past it
+      var want=Math.max(0.02,g-targetGap);
+      var c=Math.max(0,1-want/(4*CAR.R)); // 2(2R−√(4R²−L²))=want  →  L=2√(R²−(R−want/4)²)
+      var Lw=2*Math.sqrt(Math.max(0,CAR.R*CAR.R-Math.pow(CAR.R-want/4,2)));
+      L=Math.min(L,Math.max(0.10,Lw));
+    }
+    var cyc=shuffleCycle(L);
+    if(first){cyc[1].note='TRIM — four arcs per cycle, wheel flipped while stopped. '
+      +(shuffleGain(L)*100).toFixed(1)+' cm this cycle at '+L.toFixed(2)+' m of excursion';first=false;}
+    var tr=simulate(pose,cyc,slot);
+    if(tr.contact) break;
+    var f=finalState(tr); pose=[f.x,f.y,f.th];
+    segs=segs.concat(cyc); n++;
+  }
+  return {segs:segs,n:n,end:pose};
+}
+/* ---- greedy alternating-stroke planner: handles gaps below the one-move minimum ----
+   Each stroke picks the lock that most reduces a potential Φ, and runs only until Φ
+   stops falling or clearance runs out. Gears strictly alternate, so the move count it
+   reports is the move count a driver would actually make. */
+/* Φ = the reserve error.  Unwinding from body angle θ delivers a further R(1−cos θ) of
+   lateral, so the quantity a driver must null is (lateral debt) − U(θ), not the gap they
+   can see. Using the visible gap as the potential creates a local minimum at ~45° — the
+   machine equivalent of exactly the mistake the myth policy demonstrates. */
+function potential(x,y,th,slot){
+  var debt=y-targetY(), U=CAR.R*(1-Math.cos(Math.abs(th)));
+  var C=corners(x,y,th), out=0,i;
+  for(i=0;i<4;i++){
+    if(C[i][0]<0) out+=-C[i][0];
+    if(C[i][0]>slot) out+=C[i][0]-slot;
+  }
+  return 2.2*Math.abs(debt-U) + 1.6*out + 0.30*Math.abs(th);
+}
+/* ---- square-up strokes ----------------------------------------------------
+   With the body at θ>0 (tail toward the kerb) two strokes both reduce θ AND reduce
+   lateral debt, so they can be alternated indefinitely without ever trading one
+   against the other:
+     forward, full lock TOWARD the kerb    dθ<0, dy<0
+     reverse, full lock AWAY from the kerb dθ<0, dy<0
+   Each runs until it is 6 cm from contact or until θ reaches zero. This is the
+   real "work it in" technique, and it terminates by construction. */
+function strokeUntilBlocked(pose,slot,gear,steer,stopTheta,maxLen){
+  var OB=obstacles(slot), DS=0.02, SAFE=0.06, delta=steer*CAR.dmax;
+  var x=pose[0],y=pose[1],th=pose[2],len=0;
+  maxLen=maxLen||4.0;
+  while(len<maxLen){
+    var n=stepPose([x,y,th],gear*DS,delta), C=corners(n[0],n[1],n[2]), bad=false,j;
+    if(flankPoint(n[0],n[1],n[2])[1]<SAFE) bad=true;
+    for(j=0;j<4&&!bad;j++) if(C[j][1]<SAFE) bad=true;
+    if(!bad&&(overlap(C,OB[0])||overlap(C,OB[1]))) bad=true;
+    if(!bad&&clearanceAt(n[0],n[1],n[2],OB)<SAFE) bad=true;
+    if(bad) break;
+    if(stopTheta!==null&&((th>stopTheta)!==(n[2]>stopTheta))){len+=DS;x=n[0];y=n[1];th=n[2];break;}
+    x=n[0];y=n[1];th=n[2];len+=DS;
+  }
+  return {len:len,pose:[x,y,th]};
+}
+function planWorkIn(start,slot,maxStrokes){
+  maxStrokes=maxStrokes||14;
+  var segs=[],pose=[start[0],start[1],start[2]],lastSteer=null,i,n=0;
+  for(i=0;i<maxStrokes;i++){
+    if(Math.abs(pose[2])<0.018) break;
+    var sgn=pose[2]>0?1:-1;
+    var A=strokeUntilBlocked(pose,slot, 1,-sgn,0,3.2);   // forward, lock toward kerb
+    var B=strokeUntilBlocked(pose,slot,-1, sgn,0,3.2);   // reverse, lock away
+    var dA=Math.abs(pose[2]-A.pose[2]), dB=Math.abs(pose[2]-B.pose[2]);
+    var pick=(dA>=dB)?{g:1,s:-sgn,r:A,d:dA}:{g:-1,s:sgn,r:B,d:dB};
+    if(pick.d<0.004||pick.r.len<0.05) break;
+    if(lastSteer!==pick.s){segs.push({turn:pick.s});lastSteer=pick.s;}
+    segs.push({gear:pick.g,len:pick.r.len,
+      note:n===0?'SQUARE UP — forward with lock toward the kerb, reverse with lock away. Both strokes reduce heading AND lateral debt at once, so they never fight each other.':undefined});
+    pose=pick.r.pose; n++;
+  }
+  if(lastSteer!==0) segs.push({turn:0});
+  var sh=planShuffleIterative(pose,slot,0.28,12);
+  return {segs:segs.concat(sh.segs),strokes:n,cycles:sh.n,end:sh.end};
+}
+/* approach: arc to θ, spend a fraction straight, unwind until blocked, then work in */
+function planApproachWorkIn(start,slot,opt){
+  opt=opt||{};
+  var ty=targetY(),R=CAR.R,best=null,bestCost=null;
+  for(var thd=20;thd<=58;thd+=2){
+    for(var frac=1.0;frac>=0.0;frac-=0.2){
+      var t=Rad(thd), d=start[1]-ty, arc=2*R*(1-Math.cos(t));
+      var s=Math.max(0,(d-arc)/Math.sin(t)*frac);
+      var segs=[{turn:-1}];
+      var p0=[start[0],start[1],start[2]];
+      var a1=strokeUntilBlocked(p0,slot,-1,-1,t,R*t+0.4);
+      if(a1.len<0.05) continue;
+      segs.push({gear:-1,len:a1.len,note:'BUY ANGLE — full lock toward the kerb'});
+      var p1=a1.pose;
+      if(s>0.03){segs.push({turn:0});
+        var a2=strokeUntilBlocked(p1,slot,-1,0,null,s);
+        if(a2.len>0.03){segs.push({gear:-1,len:a2.len,
+          note:'SPEND ANGLE — straight back. 1 m of gap buys sin θ of lateral; arcing buys only sin(θ/2).'});p1=a2.pose;}}
+      segs.push({turn:1});
+      var a3=strokeUntilBlocked(p1,slot,-1,1,0,R*t+0.6);
+      if(a3.len>0.03){segs.push({gear:-1,len:a3.len,
+        note:'UNWIND — full lock away, until parallel or until the kerb stops you'});p1=a3.pose;}
+      var wi=planWorkIn(p1,slot,12);
+      var full=segs.concat(wi.segs);
+      var tr=simulate(start,full,slot);
+      if(tr.contact) continue;
+      var sc=scoreTraj(tr,slot,ty);
+      if(!sc.ok) continue;
+      var cost=sc.moves*1.0 - Math.min(0.30,sc.minClr)*6 + sc.dist*0.04;
+      if(bestCost===null||cost<bestCost){bestCost=cost;best={segs:full,theta:thd,tr:tr,sc:sc};}
+    }
+  }
+  return best;
+}
+function planGreedy(start,slot,opt){
+  opt=opt||{};
+  var maxStrokes=opt.maxStrokes||18, gearPen=(opt.gearPen===undefined?0.22:opt.gearPen);
+  var clrBonus=(opt.clrBonus===undefined?0:opt.clrBonus), SAFE=(opt.safe===undefined?0.055:opt.safe);
+  var OB=obstacles(slot), segs=[], pose=[start[0],start[1],start[2]];
+  var gear=-1, first=true, cur=potential(pose[0],pose[1],pose[2],slot), lastSteer=null;
+  var STEERS=[-1,-0.55,0,0.55,1], GEARS=[-1,1], DS=0.02;
+  for(var m=0;m<maxStrokes;m++){
+    var best=null;
+    for(var gi=0;gi<2;gi++){ var gr=GEARS[gi];
+      for(var k=0;k<STEERS.length;k++){
+        var st=STEERS[k], delta=st*CAR.dmax;
+        var x=pose[0],y=pose[1],th=pose[2], travelled=0, bestPhi=1e9, bestLen=0, bestClr=1e9, runClr=1e9, phi;
+        for(var i=0;i<600;i++){
+          var n=stepPose([x,y,th],gr*DS,delta);
+          var C=corners(n[0],n[1],n[2]), bad=false, j;
+          if(flankPoint(n[0],n[1],n[2])[1]<SAFE) bad=true;
+          for(j=0;j<4&&!bad;j++) if(C[j][1]<SAFE) bad=true;
+          if(!bad&&(overlap(C,OB[0])||overlap(C,OB[1]))) bad=true;
+          var cl=bad?0:clearanceAt(n[0],n[1],n[2],OB);
+          if(!bad&&cl<SAFE) bad=true;
+          if(bad) break;
+          x=n[0];y=n[1];th=n[2];travelled+=DS;runClr=Math.min(runClr,cl);
+          phi=potential(x,y,th,slot);
+          if(phi<bestPhi-1e-6){bestPhi=phi;bestLen=travelled;bestClr=runClr;}
+          else if(travelled-bestLen>0.60) break;
+        }
+        if(bestLen<=0.04) continue;
+        var cost=bestPhi + ((!first&&gr!==gear)?gearPen:0) - clrBonus*Math.min(0.35,bestClr);
+        if(!best||cost<best.cost) best={steer:st,len:bestLen,phi:bestPhi,gear:gr,cost:cost};
+      }
+    }
+    if(!best||best.phi>cur-0.004) break;
+    if(lastSteer!==best.steer){segs.push({turn:best.steer});lastSteer=best.steer;}
+    segs.push({gear:best.gear,len:best.len,
+      note:first?'Each stroke runs only while it is still reducing the reserve error, then the wheel flips.':undefined});
+    var tr=simulate(pose,[{turn:best.steer},{gear:best.gear,len:best.len}],slot);
+    var f=finalState(tr); pose=[f.x,f.y,f.th];
+    cur=best.phi; gear=best.gear; first=false;
+    var gg=flankGap(pose[0],pose[1],pose[2]);
+    if(gg>0.17&&gg<0.42&&Math.abs(pose[2])<0.030) break;
+  }
+  segs.push({turn:0});
+  return {segs:segs,label:'greedy'};
+}
+/* full policy set */
+function planPolicy(name,start,slot){
+  var win=slotXWindow(slot), ty=targetY(), best=null,i,p,tr,sc;
+  if(name==='myth'){
+    /* v1 literally: two congruent full-lock arcs, flip lock-to-lock when the kerb-side
+       gap has halved. The rule is exact for the rear-axle centre and wrong for anything
+       visible, because the nearest point drops toward the kerb through rotation as well
+       as translation — so the flip fires early and the car stops short, dead parallel. */
+    var g0=flankGap(start[0],start[1],start[2]), half=g0/2;
+    return {segs:[{turn:-1},
+      {gear:-1,steer:-1,len:16,until:function(x,y,th){return flankGap(x,y,th)<=half;},
+       note:'THE MYTH — v1\'s rule executed literally: "flip lock-to-lock when your kerb-side gap has closed to half". Watch where it stops.'},
+      {turn:1},
+      {gear:-1,steer:1,len:16,until:function(x,y,th){return th<=0.002;},
+       note:'unwinding on the myth cue — the rule is exact for the rear AXLE, and you cannot see the rear axle'},
+      {turn:0}],label:'myth'};
+  }
+  if(name==='shuffle'){
+    var need=start[1]-ty;
+    if(need<0.03) return {segs:[],label:'shuffle',n:0};
+    var sh=planShuffleIterative(start,slot,0.28,16);
+    return {segs:sh.segs,label:'shuffle',n:sh.n};
+  }
+  var cands=[];
+  for(i=16;i<=64;i+=1){
+    var allow=(name!=='minmoves');
+    p=planCanonical(start,slot,i,allow); if(!p) continue;
+    tr=simulate(start,p.segs,slot); sc=scoreTraj(tr,slot,ty);
+    if(!sc.ok) continue;
+    cands.push({plan:p,tr:tr,sc:sc,theta:i});
+  }
+  if(name==='textbook'){
+    for(i=0;i<cands.length;i++) if(cands[i].theta===45) return {segs:cands[i].plan.segs,label:'textbook',theta:45,pick:cands[i]};
+    // 45° not feasible → nearest feasible angle
+    cands.sort(function(a,b){return Math.abs(a.theta-45)-Math.abs(b.theta-45);});
+    if(cands.length) return {segs:cands[0].plan.segs,label:'textbook',theta:cands[0].theta,pick:cands[0]};
+  }
+  if(name==='minmoves'&&cands.length){
+    cands.sort(function(a,b){return (a.sc.moves-b.sc.moves)||(b.sc.minClr-a.sc.minClr);});
+    return {segs:cands[0].plan.segs,label:'minmoves',theta:cands[0].theta,pick:cands[0]};
+  }
+  if(name==='margin'){
+    if(cands.length){
+      cands.sort(function(a,b){return b.sc.minClr-a.sc.minClr;});
+      best=cands[0];
+      return {segs:best.plan.segs,label:'margin',theta:best.theta,pick:best};
+    }
+  }
+  /* fallback for every policy: harvest (analytic partial + trim), then approach+work-in */
+  var fb=planHarvest(start,slot);
+  if(fb){var ftr=simulate(start,fb.segs,slot); if(scoreTraj(ftr,slot,ty).ok){fb.label=name;return fb;}}
+  var wi=planApproachWorkIn(start,slot);
+  if(wi) return {segs:wi.segs,label:name,theta:wi.theta,workin:true};
+  if(cands.length){cands.sort(function(a,b){return b.sc.minClr-a.sc.minClr;});
+    return {segs:cands[0].plan.segs,label:name,theta:cands[0].theta,pick:cands[0]};}
+  return {segs:[],label:name,failed:true};
+}
+/* sub-minimum gap: buy the angle that fits, spend it straight, unwind early, then trim */
+function planHarvest(start,slot){
+  var ty=targetY(), win=slotXWindow(slot), bestP=null,bestSc=null,bi;
+  for(var thd=18;thd<=60;thd+=2){
+    for(var frac=1.0;frac>=0.25;frac-=0.125){
+      var t=Rad(thd), R=CAR.R;
+      var arc=2*R*(1-Math.cos(t)), d=start[1]-ty;
+      var s=(d*frac-arc)/Math.sin(t);
+      if(s<-0.001) continue; if(s<0) s=0;
+      var X=2*R*Math.sin(t)+s*Math.cos(t), fx=start[0]-X;
+      var adjust=0;
+      if(fx<win[0]) adjust=win[0]-fx; else if(fx>win[1]) adjust=win[1]-fx;
+      if(win[1]<win[0]) return null;
+      var segs=[];
+      if(Math.abs(adjust)>0.02) segs.push({gear:adjust>0?1:-1,steer:0,len:Math.abs(adjust),
+        note:'reposition '+(adjust>0?'forward':'back')+' '+Math.abs(adjust).toFixed(2)+' m'});
+      segs.push({turn:-1});
+      segs.push({gear:-1,steer:-1,len:R*t,note:'BUY ANGLE — this gap is under your one-move minimum, so take what angle fits'});
+      segs.push({turn:0});
+      if(s>0.02) segs.push({gear:-1,steer:0,len:s,note:'SPEND ANGLE straight'});
+      segs.push({turn:1});
+      segs.push({gear:-1,steer:1,len:R*t,note:'UNWIND to parallel, deliberately short of the kerb'});
+      segs.push({turn:0});
+      var tr=simulate(start,segs,slot);
+      if(tr.contact) continue;
+      var f=finalState(tr), C=corners(f.x,f.y,f.th);
+      if(!C.every(function(p){return p[0]>-0.02&&p[0]<slot+0.02;})) continue;
+      if(Math.abs(D(f.th))>2) continue;
+      var need=f.y-ty; if(need<-0.02) continue;
+      var sh=planShuffleIterative([f.x,f.y,f.th],slot,0.28,14);
+      var n=sh.n;
+      var full=segs.concat(sh.segs);
+      var tr2=simulate(start,full,slot);
+      if(tr2.contact) continue;
+      var sc=scoreTraj(tr2,slot,ty);
+      if(!sc.ok) continue;
+      var cost=sc.moves*1.0-sc.minClr*4;
+      if(!bestSc||cost<bestSc){bestSc=cost;bestP={segs:full,theta:thd,n:n};}
+    }
+  }
+  return bestP;
+}
+
+/* ==================================================================
+   KERB LAB v3 — rig
+   One trajectory type. The user makes one. The machine makes one.
+   Everything else is a view onto the difference between them.
+   ================================================================== */
+var $=function(s){return document.querySelector(s);};
+var cv=$('#cv'), ctx=cv.getContext('2d'), stage=$('#stage');
+var LS={
+  get:function(k,d){try{var v=localStorage.getItem('kl3.'+k);return v===null?d:JSON.parse(v);}catch(e){return d;}},
+  set:function(k,v){try{localStorage.setItem('kl3.'+k,JSON.stringify(v));}catch(e){}}
+};
+
+/* ---------------- state ---------------- */
+var S={
+  mode:'drive', pol:LS.get('pol','margin'),
+  carIdx:LS.get('car',1),
+  gapExtra:LS.get('gapExtra',null),   // slot = CAR.L + gapExtra; null → set from one-move minimum
+  out:LS.get('out',0.90),             // lateral offset from parked flank
+  thStar:LS.get('thStar',null),   // null → centre of the feasible band
+  rot:LS.get('rot',false), env:LS.get('env',false), band:LS.get('band',false),
+  showPreview:LS.get('preview',true), showHint:LS.get('hint',true),
+  slot:6.0,
+  pose:[0,0,0], delta:0, gear:0, dist:0,
+  hist:[], head:-1, ghostFuture:[], marks:[],
+  blocked:null, blockT:0, contacts:0, moves:0, lastGear:0,
+  start:[0,0,0],
+  ai:null, aiDist:0, aiPlay:false, aiPolicyOf:null,
+  predictAt:-1, predictScore:[0,0],
+  keys:{}, held:{fwd:false,rev:false,spc:false}, gear:-1, steerCmd:0,
+  done:false, verdictT:0, streak:LS.get('streak',0),
+  divPeak:0, divPeakAt:null
+};
+function slotLen(){return CAR.L+S.gapExtra;}
+
+/* ---------------- setup / reset ---------------- */
+function applyCar(){
+  var P=PRESETS[S.carIdx];
+  CAR.L=P.L;CAR.W=P.W;CAR.p=P.p;CAR.rear=P.r;CAR.T=P.T;CAR.track=P.tr;recompute();
+  S.minSlot=minSlot();
+  if(S.gapExtra===null||S.gapExtra===undefined){
+    S.gapExtra=+(S.minSlot-CAR.L+0.45).toFixed(2); LS.set('gapExtra',S.gapExtra);
+  }
+}
+function canonicalStart(){
+  // where the page places you: alongside, `out` clear of the parked flank
+  var d=PW+S.out, t=Rad(S.thStar), R=CAR.R;
+  var s=(d-2*R*(1-Math.cos(t)))/Math.sin(t); if(!(s>0)) s=0;
+  /* Derived from the master equation, never clamped: this x is the whole point.
+     Start here and the arc-straight-arc lands the rear axle inside the window. */
+  var x=CAR.rear+0.30+2*R*Math.sin(t)+s*Math.cos(t);
+  return [x, targetY()+d, 0];
+}
+function computeBand(){
+  if(S.thUser===undefined) S.thUser = LS.get('thStar',null)!==null;
+  var lo=null,hi=null,st=[S.start[0],S.start[1],S.start[2]];
+  /* 0.5 deg resolution: at the one-move minimum the feasible window is narrower
+     than a degree, and a 1 deg scan reports "no band" for a slot that does fit. */
+  for(var t=16;t<=64;t+=0.5){
+    var p=planCanonical(st,S.slot,t,true); if(!p) continue;
+    if(!scoreTraj(simulate(st,p.segs,S.slot),S.slot,targetY()).ok) continue;
+    if(lo===null) lo=t; hi=t;
+  }
+  S.bandLo=lo; S.bandHi=hi;
+  /* theta* follows the band unless the learner has deliberately set it. Seeding it
+     once and persisting it is how v3 ended up recommending 40 deg inside a 23-38 band. */
+  /* No band = sub-minimum slot. Staging then follows a 40 deg approach, which is the
+     pose the work-in planner is verified from; a leftover shallow theta* pushes the
+     start 4 m back down the road and leaves it with no route in at all. */
+  if(!S.thUser) S.thStar = (lo===null ? 40 : Math.round((lo+hi))/2);
+}
+function reset(keepAI){
+  applyCar(); S.slot=slotLen();
+  if(S.thStar===null||S.thStar===undefined) S.thStar=40;   // provisional, so the start pose is well-defined
+  S.start=canonicalStart(); computeBand();
+  S.start=canonicalStart(); computeBand();                  // settle: start pose and theta* must agree
+  S.pose=[S.start[0],S.start[1],S.start[2]];
+  S.delta=0;S.gear=-1;S.dist=0;S.lastGear=0;S.moves=0;S.contacts=0;
+  S.hist=[[S.pose[0],S.pose[1],S.pose[2],0,0,0]]; S.head=0;
+  S.ghostFuture=[]; S.marks=[]; S.blocked=null; S.done=false; S.verdictT=0;
+  S.divPeak=0; S.divPeakAt=null; S.aiDist=0;
+  if(!keepAI) S.ai=null;
+  if(S.mode!=='drive') buildAI();
+  $('#verdict').style.opacity=0;
+  syncKnobs();
+}
+function buildAI(){
+  var t0=performance.now();
+  var p=planPolicy(S.pol,[S.start[0],S.start[1],S.start[2]],S.slot);
+  var tr=simulate([S.start[0],S.start[1],S.start[2]],p.segs,S.slot);
+  var sc=scoreTraj(tr,S.slot,targetY());
+  S.ai={plan:p,tr:tr,sc:sc,ms:Math.round(performance.now()-t0),
+        none:!p.segs.length||p.failed};
+  S.aiPolicyOf=S.pol; S.aiDist=0; S.predictAt=-1;
+  if(S.ai.none){
+    var v=$('#verdict');
+    v.style.color='var(--warn)';
+    v.innerHTML='NO SOLUTION<small>'+S.pol.toUpperCase()+' cannot park in '+S.slot.toFixed(2)+' m.<br>'+
+      'This car needs '+S.minSlot.toFixed(2)+' m for one manoeuvre. Open the gap with <b>]</b>, '+
+      'or switch to MAX-MARGIN and let it work the car in.</small>';
+    v.style.opacity=1; S.aiPlay=false;
+  }
+}
+
+/* ---------------- trajectory helpers ---------------- */
+function sampleAt(samples,dist){          // arc-length lookup
+  if(!samples.length) return null;
+  var lo=0,hi=samples.length-1;
+  if(dist<=samples[0][5]) return samples[0];
+  if(dist>=samples[hi][5]) return samples[hi];
+  while(hi-lo>1){var m=(lo+hi)>>1; if(samples[m][5]<=dist) lo=m; else hi=m;}
+  var a=samples[lo],b=samples[hi],sp=b[5]-a[5],u=sp>1e-9?(dist-a[5])/sp:0;
+  return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u,a[2]+(b[2]-a[2])*u,a[3],b[4],dist];
+}
+function totalDist(t){return t&&t.samples.length?t.samples[t.samples.length-1][5]:0;}
+
+/* ---------------- physics ---------------- */
+var STEER_RATE=1.35, SNAP_RATE=3.0, SPEED=0.95, BITE=0.25, NIP=0.05, DT=1/120;
+var biteQueue=0;
+/* SPACE is hold-to-drive in the ARMED GEAR. ↑/↓ still drive directly and every
+   press re-arms that gear, so the badge on the car never lies about what SPACE
+   will do next. */
+function heldF(){return S.held.fwd||(S.held.spc&&S.gear>0);}
+function heldR(){return S.held.rev||(S.held.spc&&S.gear<0);}
+function tryStep(ds){
+  var n=stepPose(S.pose,ds,S.delta);
+  var OB=obstacles(S.slot), C=corners(n[0],n[1],n[2]), fp=flankPoint(n[0],n[1],n[2]);
+  var hit=null,i;
+  if(fp[1]<0) hit='the kerb';
+  for(i=0;i<4&&!hit;i++) if(C[i][1]<0) hit='the kerb';
+  if(!hit&&overlap(C,OB[0])) hit='the car behind';
+  if(!hit&&overlap(C,OB[1])) hit='the car ahead';
+  if(hit){
+    if(S.blocked!==hit){S.contacts++;S.marks.push({s:S.dist,d:true,text:'CONTACT — '+hit});}
+    S.blocked=hit;S.blockT=performance.now();
+    if(navigator.vibrate) try{navigator.vibrate(28);}catch(e){}
+    return false;
+  }
+  S.blocked=null;
+  var g=ds>0?1:-1;
+  if(S.lastGear!==0&&g!==S.lastGear) S.moves++;
+  S.lastGear=g;
+  S.pose=n; S.dist+=Math.abs(ds);
+  if(S.head<S.hist.length-1){ S.ghostFuture=S.hist.slice(S.head+1); S.hist.length=S.head+1; }
+  S.hist.push([n[0],n[1],n[2],S.delta,g,S.dist]); S.head=S.hist.length-1;
+  return true;
+}
+function physics(dt){
+  if(S.done) return;
+  // steering slew
+  var tgt=S.steerCmd*CAR.dmax, rate=(S.snap?SNAP_RATE:STEER_RATE)*CAR.dmax;
+  if(S.delta<tgt) S.delta=Math.min(tgt,S.delta+rate*dt);
+  else if(S.delta>tgt) S.delta=Math.max(tgt,S.delta-rate*dt);
+  var slewing=Math.abs(S.delta-tgt)>1e-4;
+  if(!slewing){S.delta=tgt;S.snap=false;}
+  /* Dry steer. A lock-to-lock flip takes over a metre of travel if you do it
+     rolling, which is why the textbook manoeuvre is drawn as stationary wheel
+     flips — and why the planner models them that way. Q / E / Z hold the
+     car still until the wheel arrives, then motion resumes by itself. */
+  if(S.snap&&slewing){S.wheelBusy=true;return;}
+  S.wheelBusy=false;
+  // travel
+  var ds=0;
+  if(biteQueue!==0){
+    var q=Math.sign(biteQueue), step=Math.min(Math.abs(biteQueue),SPEED*1.8*dt);
+    ds=q*step; biteQueue-=ds;
+    if(Math.abs(biteQueue)<1e-4) biteQueue=0;
+  } else if(heldF()!==heldR()){
+    ds=(heldF()?1:-1)*SPEED*dt;
+  }
+  if(ds!==0) tryStep(ds);
+  checkDone();
+}
+function checkDone(){
+  if(S.done||Math.abs(S.pose[2])>Rad(5)) return;
+  var g=flankGap(S.pose[0],S.pose[1],S.pose[2]);
+  var C=corners(S.pose[0],S.pose[1],S.pose[2]);
+  var inSlot=C.every(function(p){return p[0]>-0.10&&p[0]<S.slot+0.10;});
+  if(inSlot&&g>0.15&&g<0.45&&!heldF()&&!heldR()&&biteQueue===0&&S.dist>1.0) finish(true);
+}
+function finish(ok){
+  S.done=true;S.verdictT=performance.now();
+  var g=flankGap(S.pose[0],S.pose[1],S.pose[2]);
+  var v=$('#verdict');
+  if(ok&&S.contacts===0){S.streak++;LS.set('streak',S.streak);
+    v.style.color='var(--acc)';
+    v.innerHTML='PARKED<small>'+(g*100).toFixed(0)+' cm · '+D(S.pose[2]).toFixed(1)+'° · '+S.moves+
+      ' moves · '+S.dist.toFixed(1)+' m<br>clean streak '+S.streak+
+      (g>0.40?'<br>wide — in a slot this tight that is the honest best; SHUFFLE (4) trims '+
+        (100*(2*(2*CAR.R-Math.sqrt(Math.max(0,4*CAR.R*CAR.R-1)))) ).toFixed(0)+' cm a cycle':'')+'</small>';
+  }else{S.streak=0;LS.set('streak',0);
+    v.style.color=ok?'var(--warn)':'var(--bad)';
+    v.innerHTML=(ok?'PARKED, DIRTY':'STOPPED')+'<small>'+S.contacts+' contact'+(S.contacts===1?'':'s')+
+      ' · '+(g*100).toFixed(0)+' cm · '+D(S.pose[2]).toFixed(1)+'°<br>streak reset</small>';
+  }
+  v.style.opacity=1;
+}
+
+/* ------------------------------------------------------------------
+   UNWIND PREVIEW — the instrument this whole rig exists for.
+   "If I flipped to full lock away RIGHT NOW and reversed to parallel,
+    where would I stop, and would I touch anything on the way?"
+   RESERVE=0 tells you the rear axle lands on target. It says nothing
+   about whether your kerb-side rear corner survives the swing. This does.
+   ------------------------------------------------------------------ */
+var PV={t:0,key:''};
+function updatePreview(){
+  /* Computed unconditionally. The U toggle hides the overlay; it must not silently
+     disable the FLIP NOW cue that depends on it — the persona pass found a learner
+     who faded the aid and then drove into the kerb with the coach mute. */
+  var th=S.pose[2];
+  // Only meaningful once the debt is nearly spent. Earlier than that the unwind
+  // arc simply runs into the car behind — true, but not the question being asked.
+  var debt=S.pose[1]-targetY(), U=CAR.R*(1-Math.cos(Math.abs(th)));
+  if(Math.abs(th)<Rad(2)||debt-U>0.40){S.preview=null;return;}
+  var key=S.pose[0].toFixed(2)+','+S.pose[1].toFixed(2)+','+th.toFixed(3)+','+S.slot.toFixed(2);
+  if(key===PV.key) return; PV.key=key;
+  var sgn=th>0?1:-1;
+  var segs=[{turn:sgn},{gear:-1,steer:sgn,len:CAR.R*Math.abs(th)+0.8,
+    until:function(x,y,t){return sgn>0?t<=0.002:t>=-0.002;}}];
+  var tr=simulate([S.pose[0],S.pose[1],S.pose[2]],segs,S.slot);
+  var f=finalState(tr);
+  S.preview={samples:tr.samples,minClr:tr.minClr,contact:tr.contact,
+    gap:flankGap(f.x,f.y,f.th),end:f};
+}
+function drawPreview(){
+  var pv=S.preview; if(!pv||!S.showPreview) return;
+  var bad=pv.contact||pv.minClr<0.06, warn=!bad&&(pv.minClr<0.14||pv.gap<0.15||pv.gap>0.45);
+  var col=bad?'rgba(248,113,113,.70)':(warn?'rgba(251,191,36,.65)':'rgba(34,211,238,.60)');
+  drawPath(pv.samples,col,1.3,[5,4]);
+  poly(corners(pv.end.x,pv.end.y,pv.end.th),null,col,1.3,[4,4]);
+  if(pv.contact&&pv.samples.length){
+    var s=pv.samples[pv.samples.length-1], p=P2(s[0],s[1]);
+    ctx.fillStyle='#f87171';ctx.font='700 10px ui-monospace,SFMono-Regular,Menlo,monospace';ctx.textAlign='center';
+    var tw=ctx.measureText(pv.contact).width;
+    xMark(p[0]-tw/2-7,p[1]-11.5,3.4,'#f87171');
+    ctx.fillText(pv.contact,p[0]+4,p[1]-8);
+  }
+}
+
+/* Where the flip WILL be, not where it is. The green window is ~0.4 m of travel
+   wide and the preview number falls ~10 cm per tenth of a second inside it, so a
+   driver reacting to the number is always late. This paints the point on the ground
+   and counts the distance down, which is what a mirror-checking human can act on. */
+function reserveDistance(){                      // where RESERVE hits zero
+  var th=Math.abs(S.pose[2]); if(th<Rad(2)) return null;
+  var dR=(S.pose[1]-targetY())-CAR.R*(1-Math.cos(th));
+  return dR/Math.max(0.05,Math.sin(th));
+}
+/* RESERVE = 0 says the rear axle lands on the target line. It does NOT say the
+   kerb-side rear corner survives the swing, and on a long wheelbase it does not:
+   the persona pass parked a LWB van at a textbook-perfect RESERVE = 0 and clipped
+   the car behind. So the marker solves for the earliest point whose unwind actually
+   clears, and only falls back to the RESERVE point when nothing does. */
+var FS={key:'',val:null,gap:null,clr:null};
+function flipDistance(){
+  var th=S.pose[2], A=Math.abs(th); if(A<Rad(2)) return null;
+  var L0=reserveDistance();
+  var key=S.pose[0].toFixed(2)+','+S.pose[1].toFixed(2)+','+th.toFixed(3)+','+S.slot.toFixed(2);
+  if(key===FS.key) return FS.val;
+  FS.key=key;
+  var sgn=th>0?1:-1, best=null, u;
+  for(u=Math.max(0,L0-1.2); u<=L0+1.2; u+=0.05){
+    var q=stepPose([S.pose[0],S.pose[1],th],-u,0);          // straight-back to the candidate
+    var segs=[{turn:sgn},{gear:-1,steer:sgn,len:CAR.R*A+0.8,
+      until:(function(g){return function(x,y,t){return g>0?t<=0.002:t>=-0.002;};})(sgn)}];
+    var tr=simulate(q,segs,S.slot);
+    if(tr.contact||tr.minClr<0.07) continue;
+    var f=finalState(tr), g=flankGap(f.x,f.y,f.th);
+    if(g<0.15||g>0.45) continue;
+    var cost=Math.abs(g-0.30)+Math.max(0,0.12-tr.minClr)*2.0;   // 30 cm is the aim; clearance buys it back
+    if(!best||cost<best.cost) best={u:u,cost:cost,gap:g,clr:tr.minClr};
+  }
+  FS.val = best?best.u:L0; FS.gap = best?best.gap:null; FS.clr = best?best.clr:null;
+  return FS.val;
+}
+function drawFlipMark(){
+  var L=flipDistance(); if(L===null||L<-0.6||L>6) return;
+  var th=S.pose[2], x=S.pose[0]-L*Math.cos(th), y=S.pose[1]-L*Math.sin(th);
+  var a=P2(x-0.9*Math.sin(th),y+0.9*Math.cos(th)), b=P2(x+0.9*Math.sin(th),y-0.9*Math.cos(th));
+  var near=Math.abs(L)<0.12, col=L<-0.05?'#f87171':(near?'#4ade80':'rgba(74,222,128,.55)');
+  ctx.save();
+  ctx.strokeStyle=col; ctx.lineWidth=near?2.4:1.4; ctx.setLineDash(near?[]:[6,4]);
+  ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle=col; ctx.font='700 10px ui-monospace,monospace'; ctx.textAlign='center';
+  ctx.fillText(L<-0.05?'PAST FLIP':('FLIP '+(L<=0.05?'NOW':'in '+L.toFixed(2)+' m')),a[0],a[1]-6);
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------------
+   BEST LINE FROM HERE — computed whenever you stop moving.
+   Not "what should you have done", which is useless once you are wrong,
+   but "what is optimal from exactly where you now are". It costs a few
+   hundred milliseconds, so it only runs while the car is stationary,
+   which is also the only moment a driver can use it.
+   ------------------------------------------------------------------ */
+var HINT={key:'',idle:0,busy:false};
+function maybeHint(){
+  if(!S.showHint||S.done||S.mode!=='drive'){S.hint=null;return;}
+  if(S.gearDir()!==0){S.hint=null;HINT.idle=performance.now();HINT.key='';return;}
+  if(performance.now()-HINT.idle<450||HINT.busy) return;
+  var key=S.pose[0].toFixed(2)+','+S.pose[1].toFixed(2)+','+S.pose[2].toFixed(3)+','+S.slot.toFixed(2);
+  if(key===HINT.key) return;
+  HINT.key=key; HINT.busy=true;
+  setTimeout(function(){
+    try{
+      var st=[S.pose[0],S.pose[1],S.pose[2]];
+      var p=planPolicy('margin',st,S.slot);
+      var tr=simulate(st,p.segs,S.slot), sc=scoreTraj(tr,S.slot,targetY());
+      S.hint=(!p.segs.length||p.failed||!sc.ok)?{none:true}:{tr:tr,sc:sc,first:firstAction(p.segs)};
+    }catch(e){S.hint={none:true};}
+    HINT.busy=false;
+  },0);
+}
+function firstAction(segs){
+  for(var i=0;i<segs.length;i++){
+    if(segs[i].turn!==undefined) return segs[i].turn<0?'FULL LOCK TOWARD KERB':(segs[i].turn>0?'FULL LOCK AWAY':'WHEEL STRAIGHT');
+    if(segs[i].gear) return segs[i].gear<0?'REVERSE':'FORWARD';
+  }
+  return '';
+}
+function drawHint(){
+  var h=S.hint; if(!h||h.none) return;
+  drawPath(h.tr.samples,'rgba(34,211,238,.55)',1.6,[7,5]);
+  var f=finalState(h.tr);
+  poly(corners(f.x,f.y,f.th),null,'rgba(34,211,238,.5)',1.3,[5,4]);
+}
+
+/* ---------------- view transform ---------------- */
+var VIEW={sx:1,sy:1,ox:0,oy:0,k:30};
+function fitView(){
+  var r=stage.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var w=r.width,h=r.height;
+  var x0=-2.3, x1=Math.max(S.slot+2.3, S.start[0]+CAR.p+CAR.front+0.7);
+  var y0=-0.55, y1=Math.max(4.3, targetY()+PW+S.out+1.5);
+  var spanA=x1-x0, spanB=y1-y0;
+  var k;
+  if(S.rot){ k=Math.min((w-16)/spanB,(h-16)/spanA); }
+  else     { k=Math.min((w-16)/spanA,(h-16)/spanB); }
+  VIEW.k=k;
+  VIEW.cx=(x0+x1)/2; VIEW.cy=(y0+y1)/2; VIEW.w=w; VIEW.h=h;
+}
+function W2S(x,y){
+  var k=VIEW.k;
+  if(S.rot) return [VIEW.w/2+(VIEW.cy-y)*k, VIEW.h/2+(VIEW.cx-x)*k*-1*-1 - 0];
+  return [VIEW.w/2+(x-VIEW.cx)*k, VIEW.h/2-(y-VIEW.cy)*k];
+}
+/* rotate: road runs bottom→top, kerb on the left */
+function P2(x,y){
+  var k=VIEW.k;
+  if(S.rot) return [VIEW.w/2-(y-VIEW.cy)*k, VIEW.h/2-(x-VIEW.cx)*k];
+  return [VIEW.w/2+(x-VIEW.cx)*k, VIEW.h/2-(y-VIEW.cy)*k];
+}
+
+/* ---------------- render ---------------- */
+function poly(pts,fill,stroke,lw,dash){
+  ctx.beginPath();
+  for(var i=0;i<pts.length;i++){var p=P2(pts[i][0],pts[i][1]); i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);}
+  ctx.closePath();
+  ctx.setLineDash(dash||[]);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1.4;ctx.stroke();}
+  ctx.setLineDash([]);
+}
+function line(a,b,col,lw,dash){
+  var p=P2(a[0],a[1]),q=P2(b[0],b[1]);
+  ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);
+  ctx.setLineDash(dash||[]);ctx.strokeStyle=col;ctx.lineWidth=lw||1;ctx.stroke();ctx.setLineDash([]);
+}
+function carPath(x,y,th,fill,stroke,lw,dash){
+  var C=corners(x,y,th);
+  poly(C,fill,stroke,lw,dash);
+  // nose bar + rear-axle tick: the two references that actually matter
+  var co=Math.cos(th),si=Math.sin(th);
+  function L(a,b){return [x+a*co-b*si,y+a*si+b*co];}
+  line(L(CAR.p+CAR.front-0.12,-CAR.W/2+0.1),L(CAR.p+CAR.front-0.12,CAR.W/2-0.1),stroke,lw||1.4);
+  return C;
+}
+function draw(){
+  fitView();
+  var w=VIEW.w,h=VIEW.h;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#070a0e';ctx.fillRect(0,0,w,h);
+
+  var x0=-2.3,x1=Math.max(S.slot+2.3,S.start[0]+CAR.p+CAR.front+0.7),
+      yTop=Math.max(4.3,targetY()+PW+S.out+1.5);
+  // road + pavement
+  poly([[x0,-0.55],[x1,-0.55],[x1,0],[x0,0]],'#1b2027',null);
+  poly([[x0,0],[x1,0],[x1,yTop],[x0,yTop]],'#0d1116',null);
+  line([x0,0],[x1,0],'#3b4654',2.5);
+  // lane hint
+  line([x0,targetY()+PW+1.9],[x1,targetY()+PW+1.9],'#1e2530',1.5,[10,10]);
+
+  // parked cars
+  var OB=obstacles(S.slot);
+  poly(OB[0],'#1a2430','#2f3d4e',1.4);
+  poly(OB[1],'#1a2430','#2f3d4e',1.4);
+  // slot mouth markers
+  line([0,0],[0,KERB_OFF+PW+0.35],'#f8717155',1.4,[5,5]);
+  line([S.slot,0],[S.slot,KERB_OFF+PW+0.35],'#f8717155',1.4,[5,5]);
+
+  // target box
+  var win=slotXWindow(S.slot);
+  if(win[1]>win[0]){
+    var tx=(win[0]+win[1])/2;
+    poly(corners(tx,targetY(),0),'rgba(74,222,128,.05)','rgba(74,222,128,.32)',1.2,[6,5]);
+  }
+
+  // θ band instrument
+  if(S.band){
+    /* mid-drag the band belongs to the old slot — show it ghosted rather than
+       lying about it, and let reset() re-solve it on release */
+    if(S.dragBand){ctx.save();ctx.globalAlpha=0.22;drawBand();ctx.restore();}
+    else drawBand();
+  }
+
+  // swept envelope of the live run
+  if(S.env) drawEnvelope(S.hist,'rgba(34,211,238,.13)');
+
+  // where you land if you flip to unwind right now
+  updatePreview(); drawPreview(); drawFlipMark();
+  maybeHint(); drawHint();
+
+  // abandoned future (branch ghost)
+  if(S.ghostFuture.length) drawPath(S.ghostFuture,'rgba(140,150,165,.35)',1,[4,4]);
+
+  // AI trajectory
+  if(S.ai&&S.mode!=='drive'){
+    drawPath(S.ai.tr.samples,'rgba(167,139,250,.45)',1.4,[]);
+    var ad=aiHeadDist();
+    var a=sampleAt(S.ai.tr.samples,ad);
+    if(a){
+      carPath(a[0],a[1],a[2],'rgba(167,139,250,.10)','rgba(167,139,250,.85)',1.6,[5,4]);
+      if(S.mode==='compare'&&S.dist>0.05) drawDivergence(a);
+    }
+  }
+
+  // user path
+  drawPath(S.hist,'rgba(74,222,128,.55)',1.6,[]);
+
+  // ego
+  var blocked=S.blocked&&performance.now()-S.blockT<450;
+  var col=blocked?'#f87171':(S.done?'#4ade80':'#e8edf4');
+  carPath(S.pose[0],S.pose[1],S.pose[2],'rgba(232,237,244,.07)',col,2);
+  drawWheels();
+  drawGearBadge();
+  // instantaneous centre + turn circle
+  if(Math.abs(S.delta)>1e-3) drawICR();
+
+  // clearance whisker: nearest point on the whole body to anything
+  drawWhisker();
+
+  // marks on timeline
+  drawHUD();
+  tipTick();
+}
+/* The armed gear is a mode, and an invisible mode is a trap. It rides on the
+   car itself, lit while the car is actually moving. */
+function drawGearBadge(){
+  var q=P2(S.pose[0]+CAR.p*0.42*Math.cos(S.pose[2]),S.pose[1]+CAR.p*0.42*Math.sin(S.pose[2]));
+  var live=heldF()||heldR()||biteQueue!==0;
+  var r=Math.max(8.5,VIEW.k*0.24);
+  ctx.save();
+  ctx.beginPath();ctx.arc(q[0],q[1],r,0,6.2832);
+  ctx.fillStyle=live?'rgba(74,222,128,.92)':'rgba(8,12,17,.80)';ctx.fill();
+  ctx.lineWidth=1.3;ctx.strokeStyle=live?'#4ade80':'rgba(232,237,244,.40)';ctx.stroke();
+  ctx.fillStyle=live?'#04120a':'#e8edf4';
+  ctx.font='700 '+Math.round(r*1.2)+'px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(S.gear<0?'R':'D',q[0],q[1]+0.5);
+  ctx.restore();
+}
+function xMark(x,y,r,col){
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=1.8;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x-r,y-r);ctx.lineTo(x+r,y+r);ctx.moveTo(x+r,y-r);ctx.lineTo(x-r,y+r);
+  ctx.stroke();ctx.restore();
+}
+function drawPath(samples,col,lw,dash){
+  if(samples.length<2) return;
+  ctx.beginPath();
+  for(var i=0;i<samples.length;i++){
+    var p=P2(samples[i][0],samples[i][1]);
+    i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);
+  }
+  ctx.setLineDash(dash||[]);ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.stroke();ctx.setLineDash([]);
+}
+function drawEnvelope(samples,col){
+  if(samples.length<2) return;
+  var last=-9;
+  for(var i=0;i<samples.length;i++){
+    if(samples[i][5]-last<0.30) continue; last=samples[i][5];
+    poly(corners(samples[i][0],samples[i][1],samples[i][2]),col,null);
+  }
+}
+function drawWheels(){
+  var x=S.pose[0],y=S.pose[1],th=S.pose[2],co=Math.cos(th),si=Math.sin(th);
+  function L(a,b){return [x+a*co-b*si,y+a*si+b*co];}
+  var hw=CAR.W/2-0.10, r=0.33;
+  [[0,hw],[0,-hw]].forEach(function(o){
+    var c=L(o[0],o[1]);
+    line([c[0]-r*co,c[1]-r*si],[c[0]+r*co,c[1]+r*si],'#64748b',3.5);
+  });
+  var fa=th+S.delta,fc=Math.cos(fa),fs=Math.sin(fa);
+  [[CAR.p,hw],[CAR.p,-hw]].forEach(function(o){
+    var c=L(o[0],o[1]);
+    line([c[0]-r*fc,c[1]-r*fs],[c[0]+r*fc,c[1]+r*fs],
+      Math.abs(Math.abs(S.delta)-CAR.dmax)<1e-3?'#4ade80':'#94a3b8',3.5);
+  });
+}
+function drawICR(){
+  var R=CAR.p/Math.tan(S.delta);
+  var cx=S.pose[0]-R*Math.sin(S.pose[2]), cy=S.pose[1]+R*Math.cos(S.pose[2]);
+  var c=P2(cx,cy);
+  ctx.beginPath();ctx.arc(c[0],c[1],4,0,7);ctx.fillStyle='rgba(251,191,36,.8)';ctx.fill();
+  ctx.beginPath();ctx.arc(c[0],c[1],Math.abs(R)*VIEW.k,0,7);
+  ctx.setLineDash([3,6]);ctx.strokeStyle='rgba(251,191,36,.22)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  line([cx,cy],[S.pose[0],S.pose[1]],'rgba(251,191,36,.28)',1,[3,4]);
+}
+function drawWhisker(){
+  var C=corners(S.pose[0],S.pose[1],S.pose[2]);
+  var OB=obstacles(S.slot), best=1e9,bp=null,bq=null,i,j;
+  var fp=flankPoint(S.pose[0],S.pose[1],S.pose[2]);
+  var cand=C.concat([fp]);
+  for(i=0;i<cand.length;i++){ if(cand[i][1]<best){best=cand[i][1];bp=cand[i];bq=[cand[i][0],0];} }
+  for(i=0;i<OB.length;i++) for(j=0;j<C.length;j++){
+    var Q=OB[i];
+    for(var m=0;m<Q.length;m++){
+      var d=segDist(C[j],Q[m],Q[(m+1)%Q.length]);
+      if(d<best){best=d;bp=C[j];bq=nearestOn(C[j],Q[m],Q[(m+1)%Q.length]);}
+    }
+  }
+  if(!bp) return;
+  var col=best<0.10?'#f87171':(best<0.22?'#fbbf24':'rgba(148,163,184,.55)');
+  line(bp,bq,col,1.4,[3,3]);
+  var p=P2((bp[0]+bq[0])/2,(bp[1]+bq[1])/2);
+  ctx.fillStyle=col;ctx.font='600 10px ui-monospace,monospace';
+  ctx.textAlign='center';ctx.fillText((best*100).toFixed(0),p[0],p[1]-4);
+  S.minClrNow=best;
+}
+function nearestOn(p,a,b){
+  var vx=b[0]-a[0],vy=b[1]-a[1],L2=vx*vx+vy*vy||1e-9;
+  var t=((p[0]-a[0])*vx+(p[1]-a[1])*vy)/L2;t=Math.max(0,Math.min(1,t));
+  return [a[0]+t*vx,a[1]+t*vy];
+}
+function drawBand(){
+  var lo=S.bandLo,hi=S.bandHi,st=[S.start[0],S.start[1],S.start[2]];
+  if(lo===null||lo===undefined) return;
+  [lo,S.thStar,hi].forEach(function(t,i){
+    var p=planCanonical(st,S.slot,t,true); if(!p) return;
+    var tr=simulate(st,p.segs,S.slot);
+    drawPath(tr.samples,i===1?'rgba(251,191,36,.75)':'rgba(251,191,36,.22)',i===1?1.6:1.1,i===1?[]:[3,4]);
+    var f=finalState(tr);
+    if(i===1) poly(corners(f.x,f.y,f.th),null,'rgba(251,191,36,.45)',1.2,[4,4]);
+  });
+}
+function aiHeadDist(){
+  if(!S.ai) return 0;
+  if(S.mode==='compare') return Math.min(S.dist,totalDist(S.ai.tr));
+  return S.aiDist;
+}
+function drawDivergence(a){
+  var d=Math.hypot(a[0]-S.pose[0],a[1]-S.pose[1]);
+  if(d>S.divPeak){S.divPeak=d;S.divPeakAt=[[a[0],a[1]],[S.pose[0],S.pose[1]],S.dist];}
+  var col=d<0.15?'rgba(74,222,128,.6)':(d<0.4?'rgba(251,191,36,.75)':'rgba(248,113,113,.85)');
+  line([a[0],a[1]],[S.pose[0],S.pose[1]],col,1.6,[4,3]);
+  var p=P2((a[0]+S.pose[0])/2,(a[1]+S.pose[1])/2);
+  ctx.fillStyle=col;ctx.font='700 11px ui-monospace,monospace';ctx.textAlign='center';
+  ctx.fillText((d*100).toFixed(0)+' cm',p[0],p[1]-5);
+}
+
+/* ---------------- HUD ---------------- */
+var hudEl=$('#hud');
+var HTIP={};                       // live tooltip text per HUD row, rebuilt every frame
+function fmt(v,u){return v.toFixed(u===0?0:2);}
+function eq(){ // a worked substitution beats a definition: same maths, this car, this instant
+  return '<span class="m">'+Array.prototype.join.call(arguments,'')+'</span>';
+}
+function drawHUD(){
+  var x=S.pose[0],y=S.pose[1],th=S.pose[2];
+  var gap=flankGap(x,y,th), ang=D(th);
+  var debt=y-targetY(), U=CAR.R*(1-Math.cos(Math.abs(th))), dR=debt-U;
+  var clr=S.minClrNow===undefined?0:S.minClrNow;
+  function row(k,v,c,tip){ if(tip) HTIP[k]=tip;
+    return '<div data-k="'+k+'"><i>'+k+'</i><b style="color:'+c+'">'+v+'</b></div>';}
+  var gc=gap<0.15?'#f87171':(gap>0.45?'#fbbf24':'#4ade80');
+  var rc=Math.abs(dR)<0.06?'#4ade80':(dR>0?'#22d3ee':'#f87171');
+  var cc=clr<0.10?'#f87171':(clr<0.22?'#fbbf24':'#8d98a8');
+  var pv=S.preview, pvRow='', fl=flipDistance();
+  if(fl!==null&&fl>-0.6&&fl<8){
+    /* the outcome of the flip, before you commit to it: the strongest prediction-error
+       signal the rig can give, and the honest answer in a slot that only allows a wide finish */
+    pvRow=row('FLIP IN',(fl<=0.05?'NOW':fl.toFixed(2)+' m')+(FS.gap!=null?'  → '+(FS.gap*100).toFixed(0)+' cm':''),
+      fl<-0.05?'#f87171':(fl<0.12?'#4ade80':'#22d3ee'),
+      'The solved flip point on the ground, and what flipping <i>there</i> lands you at — '+
+      'so you can aim at it instead of reacting to a number that falls 10 cm every tenth of a second.'+
+      eq(fl<=0.05?'flip now':'flip in '+fl.toFixed(2)+' m',
+         FS.gap!=null?'  → '+(FS.gap*100).toFixed(0)+' cm, clearance '+(FS.clr*100).toFixed(0)+' cm':''));
+  }
+  if(pv){
+    var pbad=pv.contact||pv.minClr<0.06, pwarn=!pbad&&(pv.minClr<0.14||pv.gap<0.15||pv.gap>0.45);
+    pvRow+=row('IF FLIP',pv.contact?(ico('x')+' '+pv.contact):
+      ((pv.gap*100).toFixed(0)+' cm · clr '+(pv.minClr*100).toFixed(0)),
+      pbad?'#f87171':(pwarn?'#fbbf24':'#22d3ee'),
+      'Where a full unwind from <i>this instant</i> puts you — the dashed ghost on the road. '+
+      'Turn it off with <b>U</b> once you can call it yourself.'+
+      eq(pv.contact?('hits '+pv.contact):((pv.gap*100).toFixed(0)+' cm from the kerb, '+
+        (pv.minClr*100).toFixed(0)+' cm clearance')));
+  }
+  hudEl.innerHTML=
+    row('GAP',(gap*100).toFixed(0)+' cm',gc,
+      'Distance from your kerb-side flank to the kerb face. A legal, useful park is <b>15–45 cm</b>.'+
+      eq('flank − kerb = ',(gap*100).toFixed(0),' cm'))+
+    row('ANGLE',ang.toFixed(1)+'°','#e8edf4',
+      'Your heading against the kerb line. Angle is stock you buy on lock and spend on the unwind.'+
+      eq('θ = ',ang.toFixed(1),'°   R(1−cos θ) = ',(U*100).toFixed(0),' cm still owed to you'))+
+    row('RESERVE',(dR>0?'+':'')+(dR*100).toFixed(0)+' cm',rc,
+      'What the full unwind still owes you, minus what you still need. <b>Flip when this reads zero.</b> '+
+      'Positive finishes wide, negative drives you into the kerb.'+
+      eq('debt − U = (y − 0.30) − R(1−cos θ)')+
+      eq('= ',debt.toFixed(2),' − ',U.toFixed(2),' = ',(dR>0?'+':''),dR.toFixed(2),' m'))+
+    pvRow+
+    row('CLEAR',(clr*100).toFixed(0)+' cm',cc,
+      'Closest approach of any part of your body to anything solid — kerb, car behind, car ahead. '+
+      'Under 10 cm is a paint-width from a claim.'+eq('min clearance = ',(clr*100).toFixed(0),' cm'))+
+    row('MOVES',S.moves+(S.contacts?'  '+ico('x')+S.contacts:''),S.contacts?'#f87171':'#8d98a8',
+      'Direction changes, not distance. The machine parks this slot in '+(S.ai?S.ai.sc.moves:1)+'.'+
+      eq('moves ',S.moves,'   contacts ',S.contacts,'   travelled ',S.dist.toFixed(1),' m'))+
+    (S.bandLo?row('θ BAND',S.bandLo+'–'+S.bandHi+'°'+(S.thStar<S.bandLo||S.thStar>S.bandHi?'  θ* OUT':''),
+       (S.thStar<S.bandLo||S.thStar>S.bandHi)?'#f87171':'#fbbf24',
+       'Every angle that parks <i>from this exact start pose</i> — press <b>B</b> to see it drawn. '+
+       'Note it is not centred on 45°, and it is wider than the folklore admits.'+
+       eq(S.bandLo,'° – ',S.bandHi,'°   your θ* = ',S.thStar,'°',
+          (S.thStar<S.bandLo||S.thStar>S.bandHi)?'  ← outside' : '')):
+      row('θ BAND','none — sub-minimum','#f87171',
+       'No single arc-straight-arc parks this slot: it is below the one-move minimum. '+
+       'It can still be worked in — that is what SHUFFLE is for.'+
+       eq('slot ',S.slot.toFixed(2),' m < min ',(S.minSlot||0).toFixed(2),' m')))+
+    (S.mode==='compare'&&S.divPeak>0.02?row('DIVERGE','max '+(S.divPeak*100).toFixed(0)+' cm','#a78bfa',
+      'Furthest your body has ever been from the machine at the same distance travelled — '+
+      'compared by metres driven, never by clock.'+eq('peak ',(S.divPeak*100).toFixed(0),' cm')):'')+
+    (S.hint&&S.hint.none?row('BEST LINE','none from here','#f87171',
+      'Nothing recovers this pose in one line. Pull forward and re-enter — that is not failure, it is the fix.'):
+     (S.hint?row('BEST LINE',S.hint.sc.moves+' mv · '+S.hint.first,'#22d3ee',
+      'Re-solved from where you are standing now, not from the start. Press <b>H</b> to hide it — '+
+      'and do hide it once you are consistent, because reading it is not the same as knowing it.'):''));
+
+  // phase + cue
+  var ph='',cue='';
+  var steerK=S.delta<-1e-3?-1:(S.delta>1e-3?1:0);
+  /* FLIP NOW rides the solved marker, not the raw preview: the preview only turns
+     green once you are already on top of the point, which is why the cue-follower
+     persona kept stopping 46 cm out — one frame late is 10 cm of gap. */
+  var fmark=flipDistance();
+  var flipOK=(fmark!==null&&fmark<=0.08&&fmark>-0.10)||
+             (pv&&!pv.contact&&pv.minClr>0.10&&pv.gap>0.15&&pv.gap<0.45);
+  if(S.done){ph='';cue='';}
+  else if(S.dist<0.05){ph='SET UP';
+    cue=(S.bandLo&&(S.thStar<S.bandLo||S.thStar>S.bandHi))
+      ? 'θ* = '+S.thStar+'° will not park in this gap. Only '+S.bandLo+'–'+S.bandHi+'° works here. Adjust with : and ".'
+      : 'Rear bumper level with theirs, '+(S.out*100).toFixed(0)+' cm off their flank. Then reverse to θ* = '+S.thStar+'°.';}
+  /* Overshoot alarm. Persona pass: a driver following IF FLIP literally never gets a
+     green preview in a tight slot, keeps reversing on kerb-side lock and strikes the
+     kerb while the cue is still calmly saying BUY ANGLE. Negative RESERVE is the one
+     state the rig must interrupt on. */
+  else if(dR<-0.08&&Math.abs(ang)>3&&S.gearDir()!==1){ph='PAST FLIP';
+    cue='RESERVE '+(dR*100).toFixed(0)+' cm — you are past the flip point. Unwinding from here drives the kerb-side rear corner into the kerb. Stop, go FORWARD (W) on opposite lock to give the room back'+
+        (S.hint&&!S.hint.none?', or take the BEST LINE: '+S.hint.first+'.':'.');}
+  else if(flipOK&&steerK<=0){ph='FLIP NOW';
+    cue='Both conditions met: RESERVE is spent AND the unwind clears. Full lock away — E is toward the kerb, Q is away.';}
+  else if(S.gearDir()===-1&&steerK<0){ph='BUY ANGLE';
+    cue=Math.abs(ang)>=S.thStar-1.5
+      ? 'You are at θ*. Straighten the wheel (Z) and keep reversing — NEED tells you how far.'
+      : 'Rotate, do not translate. Keep going to θ* = '+S.thStar+'°; the θ BAND shows which angles this gap allows.';}
+  else if(S.gearDir()===-1&&steerK===0&&Math.abs(ang)>4){ph='SPEND ANGLE';
+    cue='Straight back buys sin θ per metre — the cheapest lateral there is. Stop when RESERVE hits zero.';}
+  else if(S.gearDir()===-1&&steerK>0){ph='UNWIND';cue='Full lock away. You get back exactly R(1−cos θ) — no more, no less.';}
+  else if(S.gearDir()===1){ph='TRIM';cue='Forward with lock toward the kerb, back with lock away. Both reduce angle and gap at once.';}
+  else if(Math.abs(dR)<0.06&&Math.abs(ang)>4&&!flipOK){ph='TOO MUCH ANGLE';
+    cue='RESERVE is zero but the unwind will not clear. You bought more angle than this gap can spend — go forward and give some back.';}
+  if(S.wheelBusy){ph='TURNING WHEEL';cue='Car held while the wheel swings — that is how the manoeuvre is drawn, and how it is driven.';}
+  $('#phase').textContent=ph;
+  $('#phase').style.color = ph==='PAST FLIP' ? '#f87171' : (ph==='FLIP NOW' ? '#4ade80' : '');
+  $('#cue').style.color   = ph==='PAST FLIP' ? '#f87171' : '';
+  $('#cue').textContent=cue;
+
+  // timeline
+  var tot=Math.max(S.hist[S.hist.length-1][5], S.ghostFuture.length?S.ghostFuture[S.ghostFuture.length-1][5]:0, 0.001);
+  var cur=S.hist[Math.min(S.head,S.hist.length-1)][5];
+  $('#tlfill').style.width=(100*S.hist[S.hist.length-1][5]/tot)+'%';
+  $('#tlghost').style.left=(100*S.hist[S.hist.length-1][5]/tot)+'%';
+  $('#tlghost').style.width=(100*(tot-S.hist[S.hist.length-1][5])/tot)+'%';
+  $('#tlhead').style.left=(100*cur/tot)+'%';
+  $('#tllab').textContent=cur.toFixed(2)+' m · '+S.moves+'mv';
+  var mh='';
+  for(var i=0;i<S.marks.length;i++) mh+='<i class="'+(S.marks[i].d?'d':'')+'" style="left:'+(100*S.marks[i].s/tot)+'%"></i>';
+  $('#tlmarks').innerHTML=mh;
+}
+S.gearDir=function(){
+  if(biteQueue>0) return 1; if(biteQueue<0) return -1;
+  if(heldF()&&!heldR()) return 1; if(heldR()&&!heldF()) return -1; return 0;
+};
+
+/* ---------------- loop ---------------- */
+var acc=0,last=performance.now();
+function loop(t){
+  var dt=Math.min(0.05,(t-last)/1000); last=t;
+  acc+=dt;
+  while(acc>=DT){physics(DT);acc-=DT;}
+  if(S.aiPlay&&S.ai){
+    S.aiDist+=SPEED*1.35*dt;
+    var tot=totalDist(S.ai.tr);
+    if(S.mode==='predict'&&nextPredict()) {/* paused inside */}
+    if(S.aiDist>=tot){S.aiDist=tot;S.aiPlay=false;$('#btnPlay').innerHTML=ico('play')+' AI';aiVerdict();}
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- AI playback / predict ---------------- */
+function aiVerdict(){
+  if(!S.ai) return;
+  var sc=S.ai.sc,v=$('#verdict');
+  v.style.color=sc.ok?'var(--ghost)':'var(--bad)';
+  v.innerHTML=S.pol.toUpperCase()+'<small>'+(sc.contact||S.ai.tr.contact?('hit '+S.ai.tr.contact):
+    ((sc.gap*100).toFixed(0)+' cm · '+sc.ang.toFixed(1)+'° · '+sc.moves+' moves · '+sc.dist.toFixed(1)+' m'))+
+    '<br>min clearance '+(sc.minClr*100).toFixed(0)+' cm</small>';
+  v.style.opacity=1;
+  setTimeout(function(){v.style.opacity=0;},4200);
+}
+function nextPredict(){
+  var ev=S.ai.tr.events;
+  for(var i=S.predictAt+1;i<ev.length;i++){
+    if(ev[i].type!=='turn') continue;
+    if(S.aiDist>=ev[i].s){ S.predictAt=i; S.aiPlay=false; askPredict(ev[i]); return true; }
+    break;
+  }
+  return false;
+}
+function askPredict(ev){
+  var opts=[['-1','LOCK TOWARD KERB'],['0','STRAIGHTEN'],['1','LOCK AWAY']];
+  var html='<h3>PREDICT — WHAT DOES THE WHEEL DO NEXT?</h3>'+
+    '<p style="color:var(--dim);font-size:12.5px;margin:0 0 4px">Angle '+D(sampleAt(S.ai.tr.samples,S.aiDist)[2]).toFixed(0)+
+    '° · gap '+(flankGap.apply(null,sampleAt(S.ai.tr.samples,S.aiDist).slice(0,3))*100).toFixed(0)+' cm · '+
+    'reserve '+((sampleAt(S.ai.tr.samples,S.aiDist)[1]-targetY()-CAR.R*(1-Math.cos(Math.abs(sampleAt(S.ai.tr.samples,S.aiDist)[2]))))*100).toFixed(0)+' cm</p>'+
+    '<div id="predict">'+opts.map(function(o){return '<button class="btn" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+  openModal(html);
+  $('#predict').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var right=Number(b.dataset.v)===ev.v;
+    S.predictScore[1]++; if(right) S.predictScore[0]++;
+    $('#mbox').innerHTML='<h3 style="color:'+(right?'var(--acc)':'var(--bad)')+'">'+
+      (right?'CORRECT':'WRONG')+' — '+ev.text.toUpperCase()+'</h3>'+
+      '<p style="color:#c3ccd8;font-size:13px">'+predictWhy(ev)+'</p>'+
+      '<p style="color:var(--dim);font-size:12px">running '+S.predictScore[0]+'/'+S.predictScore[1]+'</p>'+
+      '<button class="btn p" id="pgo">CONTINUE</button>';
+    $('#pgo').onclick=function(){closeModal();S.aiPlay=true;$('#btnPlay').innerHTML=ico('pause')+' AI';};
+  });
+}
+function predictWhy(ev){
+  if(ev.v<0) return 'Lock toward the kerb rotates the body without translating it. This is where angle is bought — and the only thing that limits it is the car behind and your own rear overhang swinging out.';
+  if(ev.v>0) return 'Lock away from the kerb unwinds. It returns exactly R(1−cos θ) of lateral. If your RESERVE was not zero when you flipped, you land short or you land on the kerb.';
+  return 'Wheel straight: pure translation along the body axis. One metre reversed buys sin θ of lateral — more per metre than any arc.';
+}
+
+/* ---------------- input: keyboard ---------------- */
+/* ---- ONE TABLE. The rail, the cheat sheet, the tooltips and the handler are
+   all generated from it. Three hand-kept copies of a key list is how key docs
+   go stale and how a learner ends up mistrusting the panel. ---- */
+function ico(n){return '<svg class="i"><use href="#i-'+n+'"/></svg>';}
+var KEYMAP=[
+{s:'DRIVE'},
+{d:'↑',g:ico('up'),alt:'W',lab:'forward',k:['arrowup','w'],
+ tip:'Hold to creep forward. Arms <b>D</b>, so SPACE repeats it. ⇧↑ = one 5 cm nip.',
+ act:function(e){ if(e.shiftKey){biteQueue=NIP;} else S.held.fwd=true; S.gear=1; },
+ up:function(){S.held.fwd=false;}, hot:function(){return heldF();}},
+{d:'↓',g:ico('dn'),alt:'S',lab:'reverse',k:['arrowdown','s'],
+ tip:'Hold to reverse. Arms <b>R</b>, so SPACE repeats it. ⇧↓ = one 5 cm nip.',
+ act:function(e){ if(e.shiftKey){biteQueue=-NIP;} else S.held.rev=true; S.gear=-1; },
+ up:function(){S.held.rev=false;}, hot:function(){return heldR();}},
+{d:'SPACE',g:ico('space'),lab:'drive · armed gear',k:[' '],
+ tip:'Hold SPACE to move in the <b>armed gear</b> — the R/D badge on the car. Steer with ← → while you hold. One thumb drives, one hand steers: that is the whole manoeuvre.',
+ act:function(){S.held.spc=true;}, up:function(){S.held.spc=false;}, hot:function(){return S.held.spc;}},
+{d:'←',g:ico('lf'),alt:'A',lab:'steer away',k:['arrowleft','a'],
+ tip:'Wind the wheel away from the kerb, progressively — hold for more. This is the <b>unwind</b> direction once you have your angle.',
+ act:function(e){S.steerCmd=clamp(S.steerCmd+(e.repeat?0.06:0.25),-1,1);},
+ hot:function(){return S.steerCmd>0&&S.steerCmd<1;}},
+{d:'→',g:ico('rt'),alt:'D',lab:'steer to kerb',k:['arrowright','d'],
+ tip:'Wind the wheel toward the kerb, progressively. Reversing on this lock is what <b>buys angle</b>.',
+ act:function(e){S.steerCmd=clamp(S.steerCmd-(e.repeat?0.06:0.25),-1,1);},
+ hot:function(){return S.steerCmd<0&&S.steerCmd>-1;}},
+{d:'Q / E',lab:'full lock away / kerb',k:['q','e'],
+ tip:'Snap to full lock. The car is held still while the wheel swings — a real lock-to-lock flip eats over a metre if you do it rolling, which is why the manoeuvre is drawn with stationary flips.',
+ act:function(e,K){S.steerCmd=(K==='q'?1:-1);S.snap=true;},
+ hot:function(){return Math.abs(S.steerCmd)===1;}},
+{d:'Z',lab:'wheel straight',k:['z'],
+ tip:'Snap the wheel to centre. Straight reversing is the cheap half of the master equation: every metre buys sin θ of lateral.',
+ act:function(){S.steerCmd=0;S.snap=true;},
+ hot:function(){return S.steerCmd===0&&Math.abs(S.delta)<1e-3;}},
+{s:'TIME'},
+{d:'J / L',lab:'shuttle back / fwd',k:['j','l'],
+ tip:'Scrub your own run backwards / forwards. Hold to shuttle faster. Nothing is destroyed until you drive again from where you stopped.',
+ act:function(e,K){var n=e.repeat?12:5;scrub(K==='j'?-n:n);}},
+{d:'K',lab:'pause',k:['k'],
+ tip:'Pause the machine and drop everything you are holding.',
+ act:function(){if(S.aiPlay)togglePlay();S.held.fwd=S.held.rev=S.held.spc=false;}},
+{d:', / .',lab:'step one frame',k:[',','.'],
+ tip:'One sample back / forward. Use this at the flip point to read RESERVE crossing zero.',
+ act:function(e,K){scrub(K===','?-1:1);}},
+{d:'⌫',g:ico('rew'),lab:'rewind to last flip',k:['backspace'],
+ tip:'Jump back to the previous direction change and carry on from there — the cheapest way to re-run one decision instead of the whole park.',
+ act:function(){rewindFlip();}},
+{s:'RIG'},
+{d:'[ ]',lab:'gap −/+',k:['[',']'],
+ tip:'Shrink / grow the slot in 5 cm steps. Watch how far below the textbook minimum you can still get in.',
+ act:function(e,K){nudge('gap',K==='['?-1:1);}},
+{d:'- =',lab:'offset −/+',k:['-','=','+'],
+ tip:'How far out from their flank you start. Too close and you clip; too far and no angle parks you.',
+ act:function(e,K){nudge('out',K==='-'?-1:1);}},
+{d:"; '",lab:'θ* −/+',k:[';',"'"],
+ tip:'Your target angle. It only sets the start pose and the cue line — the physics does not care what you aimed for.',
+ act:function(e,K){nudge('ang',K===';'?-1:1);}},
+{d:'1–5',lab:'AI policy',k:['1','2','3','4','5'],
+ tip:'MAX-MARGIN · MIN-MOVES · 45° · SHUFFLE · THE MYTH.',
+ act:function(e,K){setPol(['margin','minmoves','textbook','shuffle','myth'][+K-1]);}},
+{d:'P',lab:'play AI',k:['p'],tip:'Play / pause the machine run.',act:function(){togglePlay();}},
+{d:'G',lab:'compare',k:['g'],tip:'Ghost the machine over your own run, synced by distance travelled, not by clock.',act:function(){setMode(S.mode==='compare'?'drive':'compare');}},
+{d:'U',lab:'unwind preview',k:['u'],rail:0,tip:'Shows where a full unwind from here lands you. Turn it <b>off</b> once you are consistent — that is the point of it.',act:function(){setPrev(!S.showPreview);}},
+{d:'H',lab:'best line from here',k:['h'],rail:0,tip:'Re-solves the optimal line from your current pose. Appears when you stop.',act:function(){setHint(!S.showHint);}},
+{d:'V',lab:'envelope',k:['v'],tip:'The swept area — every square metre the body passes through.',act:function(){setEnv(!S.env);}},
+{d:'B',lab:'θ band',k:['b'],tip:'Every angle that parks from this start pose. Wider than you think, and it is not centred on 45°.',act:function(){setBand(!S.band);}},
+{d:'O',lab:'rotate frame',k:['o'],tip:'Portrait road — kerb on the left, traffic running up the screen. Remembered.',act:function(){setRot(!S.rot);}},
+{d:'R',lab:'reset',k:['r'],tip:'Back to the start pose. Your streak survives; the run does not.',act:function(){reset();}},
+{d:'?',g:ico('help'),lab:'all keys',k:['?','/'],tip:'The full sheet.',act:function(){openHelp();}}
+];
+var KEYS={};
+KEYMAP.forEach(function(r){ if(r.s) return; r.k.forEach(function(k){KEYS[k]=r;}); });
+function normKey(e){var k=e.key; return k.length===1?k.toLowerCase():k.toLowerCase();}
+function paintRail(){
+  var h='';
+  KEYMAP.forEach(function(r){
+    if(r.s){h+='<div class="hd">'+r.s+'</div>';return;}
+    if(r.rail===0) return;
+    var hot=r.hot&&r.hot();
+    h+='<div data-tip="'+att(r.tip)+'">'+r.lab+'<span>'+
+       '<k'+(hot?' class="hot"':'')+'>'+(r.g||esc(r.d))+'</k>'+
+       (r.alt?'<k class="alt">'+r.alt+'</k>':'')+'</span></div>';
+  });
+  h+='<div class="hd">GEAR</div><div data-tip="The gear SPACE will drive in. ↑ or ↓ arms it.">armed<span><k class="'+
+     (S.gear<0?'hot':'')+'">'+(S.gear<0?'R':'D')+'</k></span></div>';
+  $('#rail').innerHTML=h;
+}
+function att(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
+function esc(s){return att(s).replace(/</g,'&lt;');}
+function nudge(what,dir){
+  if(what==='gap'){S.gapExtra=clamp(+(S.gapExtra+dir*0.05).toFixed(2),0.55,3.20);LS.set('gapExtra',S.gapExtra);reset();}
+  if(what==='out'){S.out=clamp(+(S.out+dir*0.05).toFixed(2),0.50,1.60);LS.set('out',S.out);reset();}
+  if(what==='ang'){S.thUser=true;S.thStar=clamp(S.thStar+dir,15,60);LS.set('thStar',S.thStar);reset();}
+}
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+window.addEventListener('keydown',function(e){
+  var tg=e.target; if(tg&&tg.matches&&tg.matches('input,select,textarea')) return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  var K=normKey(e);
+  if($('#modal').classList.contains('on')&&e.key==='Escape'){closeModal();return;}
+  var r=KEYS[K]; if(!r) return;
+  r.act(e,K); e.preventDefault(); paintRail();
+},{passive:false});
+window.addEventListener('keyup',function(e){
+  var r=KEYS[normKey(e)]; if(r&&r.up) r.up();
+  paintRail();
+});
+window.addEventListener('blur',function(){S.held.fwd=S.held.rev=S.held.spc=false;paintRail();});
+
+
+/* ---------------- tooltips ----------------
+   A hint you have to ask for is a hint; a hint that ambushes you is noise. So:
+   600 ms of deliberate hover to open the first one, then a 1.5 s warm window in
+   which the rest open in 90 ms — the way a person who is *reading the panel*
+   behaves, and not the way a person crossing it with the mouse behaves. Any key,
+   any click, any scroll kills it instantly. Touch never sees it at all. */
+var TIP={el:null,cur:null,k:null,pk:null,warm:-1e9,mute:false};
+(function(){
+  var box=document.createElement('div'); box.id='tip'; document.body.appendChild(box); TIP.el=box;
+  var openT=0, closeT=0;
+  var coarse=!(window.matchMedia&&window.matchMedia('(hover:hover) and (pointer:fine)').matches);
+  function body(el){ return el.getAttribute('data-tip') || (el.dataset.k?HTIP[el.dataset.k]:null); }
+  function place(el){
+    var r=el.getBoundingClientRect(), b=box.getBoundingClientRect();
+    var x=r.left+r.width/2-b.width/2, y=r.top-b.height-9;
+    if(y<6){ y=r.bottom+9; }
+    x=clamp(x,6,window.innerWidth-b.width-6);
+    y=clamp(y,6,window.innerHeight-b.height-6);
+    box.style.left=Math.round(x)+'px'; box.style.top=Math.round(y)+'px';
+  }
+  function open(el){
+    var t=body(el); if(!t) return;
+    TIP.cur=el; TIP.k=el.dataset.k||null; TIP.pk=null;
+    box.innerHTML=t; box.classList.add('on'); place(el);
+  }
+  function close(){
+    if(!TIP.cur) return;
+    TIP.cur=null; TIP.k=null; TIP.warm=performance.now();
+    box.classList.remove('on');
+  }
+  function hard(){ clearTimeout(openT); clearTimeout(closeT); TIP.pk=null; close(); }
+  TIP.hard=hard;
+  /* HUD rows are replaced every frame, so identity is useless here: a pending
+     hover is tracked by KEY, or the re-armed timer would never reach its delay. */
+  function idOf(el){ return el.dataset.k || el.getAttribute('data-tip'); }
+  document.addEventListener('mouseover',function(e){
+    if(coarse||TIP.mute) return;
+    var el=e.target.closest&&e.target.closest('[data-tip],[data-k]');
+    if(!el||!body(el)){
+      if(TIP.cur||TIP.pk){ clearTimeout(openT); TIP.pk=null; closeT=setTimeout(close,90); }
+      return;
+    }
+    var id=idOf(el);
+    if(TIP.cur&&idOf(TIP.cur)===id){ clearTimeout(closeT); TIP.cur=el; return; }
+    if(TIP.pk===id) return;                       // already counting down for this one
+    clearTimeout(openT); clearTimeout(closeT); TIP.pk=id;
+    var warmish=performance.now()-TIP.warm<1500 || box.classList.contains('on');
+    openT=setTimeout(function(){
+      var live=el.isConnected?el:document.querySelector(
+        el.dataset.k?'#hud [data-k="'+el.dataset.k+'"]':null);
+      if(live) open(live);
+    }, warmish?90:600);
+  },true);
+  document.addEventListener('mouseout',function(e){
+    if(!TIP.cur&&!TIP.pk) return;
+    var to=e.relatedTarget;
+    if(to&&to.closest&&to.closest('[data-tip],[data-k]')) return;
+    if(!to&&e.target.isConnected===false) return;   // node swapped under a still mouse
+    clearTimeout(openT); clearTimeout(closeT);
+    closeT=setTimeout(function(){TIP.pk=null;close();},120);
+  },true);
+  ['mousedown','wheel','scroll','touchstart'].forEach(function(ev){
+    window.addEventListener(ev,hard,{capture:true,passive:true});
+  });
+  window.addEventListener('keydown',function(){ TIP.mute=true; hard(); },true);
+  window.addEventListener('mousemove',function(e){
+    if(TIP.mute&&(Math.abs(e.movementX)>2||Math.abs(e.movementY)>2)) TIP.mute=false;
+  },true);
+  window.addEventListener('blur',hard);
+})();
+/* HUD rows are rebuilt every frame; re-anchor the open tooltip to the fresh node
+   and refresh its numbers in place, so the maths ticks while you read it. */
+function tipTick(){
+  if(!TIP.k||!TIP.el.classList.contains('on')) return;
+  var el=hudEl.querySelector('[data-k="'+TIP.k+'"]');
+  if(!el){ TIP.hard(); return; }
+  TIP.cur=el;
+  var t=HTIP[TIP.k]; if(t&&t!==TIP.el.innerHTML) TIP.el.innerHTML=t;
+}
+
+/* ---------------- timeline ---------------- */
+function scrub(n){
+  S.head=clamp(S.head+n,0,S.hist.length-1);
+  var s=S.hist[S.head];
+  S.pose=[s[0],s[1],s[2]];S.delta=s[3];S.dist=s[5];S.done=false;
+  $('#verdict').style.opacity=0;
+}
+function rewindFlip(){
+  var i=S.head, g=S.hist[i][4];
+  while(i>0&&S.hist[i][4]===g) i--;
+  while(i>0&&S.hist[i][4]===S.hist[i-1][4]) i--;
+  S.head=i; scrub(0);
+}
+(function(){
+  var bar=$('#tlbar'),drag=false;
+  function at(e){
+    var r=bar.getBoundingClientRect(), u=clamp((e.clientX-r.left)/r.width,0,1);
+    var tot=Math.max(S.hist[S.hist.length-1][5],0.001);
+    var d=u*tot, i=0;
+    while(i<S.hist.length-1&&S.hist[i+1][5]<d) i++;
+    S.head=i;scrub(0);
+  }
+  bar.addEventListener('pointerdown',function(e){drag=true;bar.setPointerCapture(e.pointerId);at(e);});
+  bar.addEventListener('pointermove',function(e){if(drag)at(e);});
+  bar.addEventListener('pointerup',function(){drag=false;});
+})();
+$('#btnRew').onclick=rewindFlip;
+
+/* ---------------- touch driving ---------------- */
+(function(){
+  function zone(el,dir){
+    var t0=0,timer=null;
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault(); el.classList.add('on'); el.setPointerCapture(e.pointerId);
+      var now=performance.now();
+      if(now-t0<280){S.steerCmd=dir;S.snap=true;}
+      else{ timer=setInterval(function(){S.steerCmd=clamp(S.steerCmd+dir*0.055,-1,1);},16); }
+      t0=now;
+      if($('#tzL').classList.contains('on')&&$('#tzR').classList.contains('on')){S.steerCmd=0;S.snap=true;}
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+      el.addEventListener(ev,function(){el.classList.remove('on');if(timer){clearInterval(timer);timer=null;}});
+    });
+  }
+  zone($('#tzL'),1); zone($('#tzR'),-1);
+  function hold(el,prop){
+    el.addEventListener('pointerdown',function(e){e.preventDefault();S.held[prop]=true;el.classList.add('on');el.setPointerCapture(e.pointerId);});
+    ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+      el.addEventListener(ev,function(){S.held[prop]=false;el.classList.remove('on');});
+    });
+  }
+  hold($('#bFwd'),'fwd'); hold($('#bRev'),'rev');
+  $('#bBite').addEventListener('click',function(){biteQueue=-BITE;});
+  // swipe-scrub the stage horizontally with two fingers is fiddly; use the bar.
+})();
+
+/* ---------------- direct manipulation (mouse) ----------------
+   The keyboard is the instrument; the mouse is the hand. Everything here obeys
+   the same physics as driving — a drag cannot teleport the car through a bumper,
+   it walks it along the exact arc its wheel is on, collision-checked, recorded
+   in the same history. Nothing here is a shortcut past the manoeuvre.
+
+   grab the BODY  → walk along the arc your wheel is on
+   grab the NOSE  → point the front wheels (dry steer, car held)
+   click the car  → toggle the armed gear R / D
+   right-click    → the four wheel commands, on the spot
+   drag a parked car → resize the slot; the band greys out and re-solves on release
+   wheel over the road → scrub your run, ⇧ = ×5
+   No zoom, no pan: the view always frames the whole manoeuvre, and a learner who
+   can pan is a learner who can lose the kerb off-screen. */
+function S2W(px,py){
+  var k=VIEW.k;
+  if(S.rot) return [VIEW.cx-(py-VIEW.h/2)/k, VIEW.cy-(px-VIEW.w/2)/k];
+  return [VIEW.cx+(px-VIEW.w/2)/k, VIEW.cy-(py-VIEW.h/2)/k];
+}
+function inPoly(p,poly){
+  var c=false;
+  for(var i=0,j=poly.length-1;i<poly.length;j=i++){
+    var a=poly[i],b=poly[j];
+    if((a[1]>p[1])!==(b[1]>p[1]) && p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0]) c=!c;
+  }
+  return c;
+}
+function hitTest(w){
+  var C=corners(S.pose[0],S.pose[1],S.pose[2]);
+  if(inPoly(w,C)){
+    var dx=w[0]-S.pose[0],dy=w[1]-S.pose[1],co=Math.cos(S.pose[2]),si=Math.sin(S.pose[2]);
+    var a=dx*co+dy*si;
+    return {t:a>CAR.p*0.55?'nose':'body'};
+  }
+  var OB=obstacles(S.slot);
+  if(inPoly(w,OB[0])) return {t:'parked',i:0};
+  if(inPoly(w,OB[1])) return {t:'parked',i:1};
+  return {t:'road'};
+}
+var MOUSE={on:null,drag:null,hot:null};
+(function(){
+  var st=$('#stage'), down=null;
+
+  function wpt(e){
+    var r=cv.getBoundingClientRect();
+    return S2W(e.clientX-r.left,e.clientY-r.top);
+  }
+  /* Signed travel from the drag anchor along the fixed circle the wheel defines.
+     Constant δ ⇒ the ICR is fixed in the world, so this is one atan2, not a search. */
+  function arcParam(w,A){
+    if(A.straight){
+      return (w[0]-A.p0[0])*Math.cos(A.th0)+(w[1]-A.p0[1])*Math.sin(A.th0);
+    }
+    var a=Math.atan2(w[1]-A.c[1],w[0]-A.c[0]);
+    var d=a-A.a0; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI;
+    return d*A.R*A.sgn;
+  }
+  function anchor(){
+    var p0=[S.pose[0],S.pose[1]],th0=S.pose[2];
+    if(Math.abs(S.delta)<1e-3) return {straight:true,p0:p0,th0:th0};
+    var R=CAR.p/Math.tan(Math.abs(S.delta)), sgn=S.delta>0?1:-1;
+    var c=[p0[0]-sgn*R*Math.sin(th0), p0[1]+sgn*R*Math.cos(th0)];
+    return {straight:false,c:c,R:R,sgn:sgn,a0:Math.atan2(p0[1]-c[1],p0[0]-c[0]),p0:p0,th0:th0};
+  }
+  function walkTo(u){
+    var moved=0,guard=0;
+    while(Math.abs(u-moved)>0.004&&guard++<400){
+      var step=Math.sign(u-moved)*Math.min(0.03,Math.abs(u-moved));
+      if(!tryStep(step)) break;
+      moved+=step;
+    }
+    return moved;
+  }
+  function setCursor(h){
+    st.style.cursor = h==='body'?(down?'grabbing':'grab') :
+      h==='nose'?'crosshair' : h==='parked'?(S.rot?'row-resize':'col-resize') : 'default';
+  }
+
+  st.addEventListener('pointerdown',function(e){
+    if(e.pointerType==='touch') return;
+    closeCtx();
+    if(e.button===2) return;                      // handled by contextmenu
+    var w=wpt(e), h=hitTest(w);
+    if(h.t==='road') return;
+    e.preventDefault(); st.setPointerCapture(e.pointerId);
+    TIP.mute=true; if(TIP.hard) TIP.hard();
+    if(h.t==='parked'){
+      down={k:'parked',i:h.i,x0:w[0],g0:S.gapExtra,moved:false};
+      S.dragBand=true;
+    }else if(h.t==='nose'){
+      down={k:'steer',moved:false}; steerTo(w);
+    }else{
+      down={k:'walk',A:anchor(),u:0,moved:false};
+      if(S.done){S.done=false;$('#verdict').style.opacity=0;}
+    }
+    MOUSE.drag=down.k; setCursor(h.t);
+  });
+  function steerTo(w){
+    var a=Math.atan2(w[1]-S.pose[1],w[0]-S.pose[0])-S.pose[2];
+    while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI;
+    if(Math.abs(a)>Math.PI/2) a=a>0?Math.PI-a:-Math.PI-a;   // grabbing past the axle still means "point it that way"
+    S.steerCmd=clamp(a/CAR.dmax,-1,1); S.snap=true;
+  }
+  st.addEventListener('pointermove',function(e){
+    if(e.pointerType==='touch') return;
+    var w=wpt(e);
+    if(!down){ var h=hitTest(w); MOUSE.hot=h.t; setCursor(h.t); return; }
+    down.moved=true;
+    if(down.k==='walk'){
+      var u=arcParam(w,down.A);
+      if(Math.abs(u-down.u)>0.004) down.u+=walkTo(u-down.u);
+    }else if(down.k==='steer'){
+      steerTo(w);
+    }else if(down.k==='parked'){
+      var d=w[0]-down.x0, g=down.i===1?down.g0+d:down.g0-d;
+      S.gapExtra=clamp(+g.toFixed(3),0.55,3.20);
+      S.slot=slotLen();
+    }
+  });
+  function end(e){
+    if(!down) return;
+    var d=down; down=null; MOUSE.drag=null; S.dragBand=false;
+    try{st.releasePointerCapture(e.pointerId);}catch(_){}
+    if(d.k==='parked'){
+      S.gapExtra=+S.gapExtra.toFixed(2); LS.set('gapExtra',S.gapExtra);
+      reset();                                   // re-solve band, θ*, start pose
+    }
+    if(d.k==='walk'&&!d.moved){                    // a click, not a drag
+      S.gear=-S.gear; paintRail();
+    }
+    setCursor(MOUSE.hot);
+  }
+  st.addEventListener('pointerup',end);
+  st.addEventListener('pointercancel',end);
+  st.addEventListener('pointerleave',function(e){ if(!down){st.style.cursor='default';} });
+
+  /* wheel = scrub, the editor idiom — but only over the car itself (or with ⇧
+     anywhere over the road). A trackpad user scrolling down to the notes must not
+     have the page hijacked because the pointer happened to be over the tarmac. */
+  function wheelScrub(e,always){
+    if(!always){ var t=hitTest(wpt(e)).t; if(t!=='body'&&t!=='nose'&&!e.shiftKey) return; }
+    e.preventDefault();
+    scrub((e.deltaY>0?1:-1)*(e.shiftKey?25:3));
+  }
+  st.addEventListener('wheel',function(e){wheelScrub(e,false);},{passive:false});
+  $('#tlbar').addEventListener('wheel',function(e){wheelScrub(e,true);},{passive:false});
+
+  /* ---- right-click: the wheel commands, where the wheel is ---- */
+  var ctx=document.createElement('div'); ctx.id='ctx'; document.body.appendChild(ctx);
+  function closeCtx(){ ctx.classList.remove('on'); }
+  MOUSE.closeCtx=closeCtx;
+  st.addEventListener('contextmenu',function(e){
+    e.preventDefault();
+    var w=wpt(e), h=hitTest(w);
+    var items = h.t==='parked' ? [
+      ['GAP −5 cm',function(){nudge('gap',-1);}],
+      ['GAP +5 cm',function(){nudge('gap',1);}],
+      ['SET TO ONE-MOVE MINIMUM',function(){S.gapExtra=+(S.minSlot-CAR.L).toFixed(2);LS.set('gapExtra',S.gapExtra);reset();}]
+    ] : h.t==='road' ? [
+      ['RESET',function(){reset();}],
+      ['REWIND TO LAST FLIP',function(){rewindFlip();}],
+      ['BEST LINE FROM HERE',function(){setHint(!S.showHint);}]
+    ] : [
+      ['FULL LOCK TOWARD KERB',function(){S.steerCmd=-1;S.snap=true;}],
+      ['FULL LOCK AWAY',function(){S.steerCmd=1;S.snap=true;}],
+      ['WHEEL STRAIGHT',function(){S.steerCmd=0;S.snap=true;}],
+      ['FLIP TO UNWIND NOW',function(){S.steerCmd=S.delta<0?1:-1;S.snap=true;}],
+      ['ARM '+(S.gear<0?'D':'R'),function(){S.gear=-S.gear;paintRail();}],
+      ['REWIND TO LAST FLIP',function(){rewindFlip();}]
+    ];
+    ctx.innerHTML=items.map(function(it,i){return '<button data-i="'+i+'">'+it[0]+'</button>';}).join('');
+    ctx.classList.add('on');
+    ctx.style.left=Math.min(e.clientX,window.innerWidth-ctx.offsetWidth-8)+'px';
+    ctx.style.top=Math.min(e.clientY,window.innerHeight-ctx.offsetHeight-8)+'px';
+    ctx.onclick=function(ev){
+      var b=ev.target.closest('button'); if(!b) return;
+      items[+b.dataset.i][1](); closeCtx();
+    };
+  });
+  window.addEventListener('pointerdown',function(e){
+    if(!ctx.contains(e.target)) closeCtx();
+  },true);
+  window.addEventListener('keydown',closeCtx,true);
+})();
+
+/* ---------------- controls ---------------- */
+function setMode(m){
+  S.mode=m;
+  [].forEach.call(document.querySelectorAll('#modeSeg button'),function(b){
+    b.setAttribute('aria-pressed',b.dataset.mode===m);});
+  if(m!=='drive'){ if(!S.ai||S.aiPolicyOf!==S.pol) buildAI(); if(m==='watch'||m==='predict'){S.aiDist=0;S.aiPlay=true;$('#btnPlay').innerHTML=ico('pause')+' AI';} }
+  else {S.aiPlay=false;$('#btnPlay').innerHTML=ico('play')+' AI';}
+}
+function setPol(p){
+  S.pol=p;LS.set('pol',p);
+  [].forEach.call(document.querySelectorAll('#polSeg button'),function(b){
+    b.setAttribute('aria-pressed',b.dataset.pol===p);});
+  buildAI();
+  if(S.mode==='drive') setMode('compare');
+  if(S.mode==='watch'||S.mode==='predict'){S.aiDist=0;S.aiPlay=true;$('#btnPlay').innerHTML=ico('pause')+' AI';}
+}
+function togglePlay(){
+  if(S.mode==='drive') setMode('watch');
+  if(!S.ai) buildAI();
+  if(S.aiDist>=totalDist(S.ai.tr)-1e-6) S.aiDist=0;
+  S.aiPlay=!S.aiPlay;
+  $('#btnPlay').innerHTML=(S.aiPlay?ico('pause'):ico('play'))+' AI';
+}
+function setRot(v){S.rot=v;LS.set('rot',v);$('#btnRot').setAttribute('aria-pressed',v);}
+function setEnv(v){S.env=v;LS.set('env',v);$('#btnEnv').setAttribute('aria-pressed',v);}
+function setBand(v){S.band=v;LS.set('band',v);$('#btnBand').setAttribute('aria-pressed',v);}
+function setPrev(v){S.showPreview=v;LS.set('preview',v);$('#btnPrev').setAttribute('aria-pressed',v);PV.key='';}
+function setHint(v){S.showHint=v;LS.set('hint',v);$('#btnHint').setAttribute('aria-pressed',v);HINT.key='';if(!v)S.hint=null;}
+$('#btnRot').onclick=function(){setRot(!S.rot);};
+$('#btnEnv').onclick=function(){setEnv(!S.env);};
+$('#btnBand').onclick=function(){setBand(!S.band);};
+$('#btnPrev').onclick=function(){setPrev(!S.showPreview);};
+$('#btnHint').onclick=function(){setHint(!S.showHint);};
+$('#btnReset').onclick=function(){reset();};
+$('#btnPlay').onclick=togglePlay;
+$('#btnHelp').onclick=openHelp;
+/* On a phone the closed accordions cost ~200 px of the only thing that matters.
+   Same nodes, moved into the sheet — never duplicated, so state is shared. */
+$('#btnNotes').onclick=function(){
+  var m=$('#mbox'); m.innerHTML='<h3>NOTES</h3>';
+  m.appendChild($('#more'));
+  $('#more').style.display='block'; $('#more').style.maxHeight='none';
+  $('#modal').classList.add('on');
+};
+$('#modal').addEventListener('click',function(e){
+  if(e.target!==this) return;
+  var mo=$('#more'); if(mo&&mo.parentNode===$('#mbox')){mo.style.display='';mo.style.maxHeight='';document.body.appendChild(mo);}
+});
+[].forEach.call(document.querySelectorAll('#modeSeg button'),function(b){b.onclick=function(){setMode(b.dataset.mode);};});
+[].forEach.call(document.querySelectorAll('#polSeg button'),function(b){b.onclick=function(){setPol(b.dataset.pol);};});
+$('#sGap').oninput=function(){S.gapExtra=+this.value;LS.set('gapExtra',S.gapExtra);reset();};
+$('#sOut').oninput=function(){S.out=+this.value;LS.set('out',S.out);reset();};
+$('#sAng').oninput=function(){S.thUser=true;S.thStar=+this.value;LS.set('thStar',S.thStar);reset();};
+$('#selCar').innerHTML=PRESETS.map(function(p,i){return '<option value="'+i+'">'+p.n+'</option>';}).join('');
+$('#selCar').value=S.carIdx;
+$('#selCar').onchange=function(){S.carIdx=+this.value;LS.set('car',S.carIdx);reset();};
+function syncKnobs(){
+  $('#sGap').value=S.gapExtra;$('#sOut').value=S.out;$('#sAng').value=S.thStar;
+  var over=S.slot-S.minSlot, g=$('#vGap');
+  g.textContent=S.slot.toFixed(2)+'m';
+  g.style.color=over>=0?'#4ade80':(over>-0.55?'#fbbf24':'#f87171');
+  g.title='one-move minimum for this car: '+S.minSlot.toFixed(2)+' m';
+  $('#subMin').textContent=over>=0
+    ? '+'+over.toFixed(2)+' m over the one-move minimum'
+    : (Math.abs(over)*100).toFixed(0)+' cm UNDER the one-move minimum — no single manoeuvre fits; you must work it in';
+  $('#subMin').style.color=over>=0?'var(--dim)':'#fbbf24';
+  $('#vOut').textContent=(S.out*100).toFixed(0)+'cm';
+  $('#vAng').textContent=S.thStar+'°'+(S.bandLo?' ('+S.bandLo+'–'+S.bandHi+')':' (—)');
+  var oob=S.bandLo&&(S.thStar<S.bandLo||S.thStar>S.bandHi);
+  $('#vAng').style.color=oob?'#f87171':'#e8edf4';
+  $('#vAng').style.cursor=oob?'pointer':'';
+  $('#vAng').title=oob?'outside the feasible band — click to snap to its centre':'';
+  $('#vAng').onclick=oob?function(){S.thUser=false;S.thStar=null;LS.set('thStar',null);
+    localStorage.removeItem('kl3.thStar');reset();}:null;
+}
+
+/* ---------------- modal ---------------- */
+function openModal(html){$('#mbox').innerHTML=html;$('#modal').classList.add('on');}
+function closeModal(){$('#modal').classList.remove('on');}
+$('#modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+function openHelp(){
+  var h='';
+  KEYMAP.forEach(function(r){
+    if(r.s){h+='<div class="kh">'+r.s+'</div>';return;}
+    h+='<span class="kk">'+(r.g||esc(r.d))+(r.alt?'  <i>'+r.alt+'</i>':'')+'</span><span class="kd">'+r.lab+' — '+
+        String(r.tip).replace(/<\/?b>/g,'')+'</span>';
+  });
+  var mouse=[
+    ['grab the body','walk the car along the exact arc its wheel is on — collision-checked, recorded'],
+    ['grab the nose','point the front wheels. The car is held while they swing, like a real dry steer'],
+    ['click the car','flip the armed gear R / D — the badge on the roof'],
+    ['right-click','the wheel commands where the wheel is; on a parked car, the slot; on the road, the run'],
+    ['drag a parked car','resize the slot live. The band greys out while you drag and re-solves when you let go'],
+    ['wheel over the car','scrub your run — or ⇧+wheel anywhere, or wheel over the timeline. ⇧ = ×5']
+  ];
+  openModal('<h3>EVERY KEY</h3><div class="kg">'+h+
+    '<div class="kh">MOUSE</div>'+mouse.map(function(m){
+      return '<span class="kk">'+m[0]+'</span><span class="kd">'+m[1]+'</span>';}).join('')+
+    '</div>'+
+    '<p class="note">Arrows drive; WASD does the same if your hand lives there. '+
+    'SPACE drives in the armed gear — the R/D badge on the car tells you which. '+
+    'No zoom, no pan: the view always frames the whole manoeuvre.</p>');
+}
+/* ---------------- accordions ---------------- */
+$('#more').innerHTML=[
+ ['THE ONLY EQUATION YOU NEED', `
+  <p>Reversing on full lock, your rear axle traces a circle of radius <code>R = p / tan δmax</code>.
+  Everything below falls out of that one fact.</p>
+  <h4>THE MASTER EQUATION</h4>
+  <p>To move sideways by <code>d</code> using a turn to angle θ, a straight run of <code>s</code>, and a full unwind:</p>
+  <p><code>d = 2R(1 − cos θ) + s · sin θ</code></p>
+  <ul>
+    <li><b>2R(1 − cos θ)</b> — what the two arcs give you. Both halves, in and out.</li>
+    <li><b>s · sin θ</b> — what straight reversing gives you. <b>This is the cheap half.</b></li>
+  </ul>
+  <h4>WHY THE HUD SHOWS "RESERVE"</h4>
+  <p>Once you are at angle θ, unwinding to parallel will give you back exactly
+  <code>U = R(1 − cos θ)</code> of lateral movement — no more, no less. Your outstanding lateral
+  debt is <code>debt = y − 30 cm</code>. The gauge shows <code>debt − U</code>.</p>
+  <p><b>Flip to unwind when RESERVE reads zero.</b> Positive and you will finish short of the kerb.
+  Negative and the unwind drives you into it. This single number replaces every "look for the 45°"
+  rule of thumb, and it is correct for every car, every gap, and every starting position.</p>
+  <p class="note">The reason so many people stall at roughly 45° is that they are steering to a
+  <i>remembered angle</i> instead of to a <i>condition</i>. The angle is an output, not a target.</p>`],
+
+ ['WHY "FLIP WHEN THE GAP HALVES" FAILS', `
+  <p>The folk rule — reverse on full lock, then flip lock-to-lock when your kerb-side gap has closed
+  to half — is exact for the <b>rear axle centre</b>. You cannot see the rear axle centre.</p>
+  <p>What you can see is the nearest visible point of your own flank, and that point drops toward the
+  kerb through <i>rotation</i> as well as translation. So it reaches "half" early, you flip early, and
+  you finish parallel but short. Run policy <b>5 — THE MYTH</b> and watch it land:</p>
+  <table><tr><th>car</th><th>finishes</th></tr>
+  <tr><td>supermini</td><td>47 cm out</td></tr>
+  <tr><td>hatch</td><td>59 cm out</td></tr>
+  <tr><td>saloon</td><td>80 cm out</td></tr>
+  <tr><td>large SUV</td><td>84 cm out</td></tr>
+  <tr><td>LWB van</td><td>95 cm out</td></tr></table>
+  <p>Dead parallel every time, and wrong by more the bigger your car. It <i>feels</i> like a rule that
+  works, because parallel feels like success. That is exactly why it survives.</p>`],
+
+ ['WHEN THE GAP IS TOO SMALL: THE SHUFFLE', `
+  <p>Once you are parallel and merely too far out, you can still move sideways. Four arcs —
+  lock away, back; lock toward, back; lock away, forward; lock toward, forward — return you to the
+  same heading and the same longitudinal position, displaced toward the kerb by</p>
+  <p><code>2(2R − √(4R² − L²)) ≈ L² / 2R</code> per cycle, for an excursion of <code>L</code>.</p>
+  <p>It is <b>quadratic in L</b>: doubling the room you use quadruples the yield. Using 1.0 m instead
+  of 0.5 m is not twice as good, it is four times as good. Conversely, in a truly tight bracket the
+  shuffle is close to useless — the cycle count goes as <code>N ≈ 2dR/L²</code>.</p>
+  <h4>THE CEILING NOBODY MENTIONS</h4>
+  <p>The forward half of each cycle steers <i>toward</i> the kerb, which swings your kerb-side front
+  corner <code>(p + front overhang) · sin φ</code> closer to it. Long before you run out of
+  longitudinal room, <b>your own nose limits the excursion</b>. That is why the shuffle collapses in
+  effectiveness exactly when you need it most.</p>`],
+
+ ['THE FIVE MACHINE POLICIES', `
+  <p>Each is a different objective on the same physics. Watching them disagree is the point.</p>
+  <ul>
+    <li><b>1 · MAX-MARGIN</b> — maximises the smallest clearance reached at any instant.
+    This is the policy worth copying. It usually takes a <i>lower</i> entry angle and a longer
+    straight leg than the textbook.</li>
+    <li><b>2 · MIN-MOVES</b> — fewest direction changes. It looks impressive and it is a
+    <b>bad habit</b>: it buys its move count by running centimetres from other people's paint.</li>
+    <li><b>3 · 45°</b> — the taught manoeuvre, executed exactly. Note that 45° is often not even
+    feasible in the gap you have set; turn on <b>θ BAND</b> to see which angles actually work.</li>
+    <li><b>4 · SHUFFLE</b> — no entry manoeuvre at all, pure lateral crawl. Shows you the cost.</li>
+    <li><b>5 · THE MYTH</b> — the folk rule, executed literally. The comparator lesson.</li>
+  </ul>
+  <p class="note">MIN-MOVES is the headline number every parking demo shows off. It is a vanity
+  metric. Margin is what keeps your bumpers, and margin is what this rig defaults to.</p>`],
+
+ ['HOW TO USE THIS RIG', `
+  <h4>THE LOOP THAT ACTUALLY BUILDS SKILL</h4>
+  <ol>
+    <li>Drive it yourself first, badly. Do not watch the machine first — watching produces
+    <i>fluency</i>, which feels like learning and is not.</li>
+    <li>Hit <b>G</b>. The machine now runs your start, ghosted over you, synced by distance
+    travelled rather than by time. The dashed line between the two cars is your divergence, in
+    centimetres, live.</li>
+    <li>Find where the number spikes. That instant is your error. Scrub back to it with
+    <b>J</b>, step frame by frame with <b>,</b> / <b>.</b>, or hit <b>⌫</b> to jump straight to the
+    last direction change.</li>
+    <li>Drive on from there. Your abandoned attempt stays on screen as a grey ghost so you can
+    see what the fix bought you.</li>
+    <li>Change <i>one</i> thing — gap, offset, car — and repeat. Varying the conditions between
+    attempts feels worse and retains far better than drilling the same slot.</li>
+  </ol>
+  <h4>PREDICT MODE</h4>
+  <p>Watching is passive and passive is worthless. PREDICT stops the machine at every wheel
+  movement and makes you call it first. Being wrong here is the most valuable thing that
+  happens in this app — a wrong prediction you then see corrected is worth several correct ones.</p>`],
+
+ ['NUMBERS FOR YOUR CAR', `
+  <div id="tblCar"></div>
+  <p class="note">Turning circle is the manufacturer's kerb-to-kerb figure. R is derived from it, not
+  guessed: <code>R = √((T/2)² − p²) − track/2</code>. If your car is not in the list, pick the closest
+  and treat the one-move minimum as approximate.</p>`]
+].map(function(s){return '<details><summary>'+s[0]+'</summary><div class="body">'+s[1]+'</div></details>';}).join('');
+
+function fillCarTable(){
+  var rows=PRESETS.map(function(P){
+    var sv={L:CAR.L,W:CAR.W,p:CAR.p,rear:CAR.rear,T:CAR.T,track:CAR.track};
+    CAR.L=P.L;CAR.W=P.W;CAR.p=P.p;CAR.rear=P.r;CAR.T=P.T;CAR.track=P.tr;recompute();
+    var R=CAR.R,dm=D(CAR.dmax);
+    var min=minSlot();
+    CAR.L=sv.L;CAR.W=sv.W;CAR.p=sv.p;CAR.rear=sv.rear;CAR.T=sv.T;CAR.track=sv.track;recompute();
+    return '<tr><td>'+P.n+'</td><td>'+P.L.toFixed(2)+'</td><td>'+R.toFixed(2)+'</td><td>'+
+      dm.toFixed(0)+'°</td><td>'+min.toFixed(2)+'</td><td>+'+(min-P.L).toFixed(2)+'</td></tr>';
+  }).join('');
+  $('#tblCar').innerHTML='<table><tr><th>car</th><th>len</th><th>R</th><th>δmax</th>'+
+    '<th>1-move min</th><th>surplus</th></tr>'+rows+'</table>'+
+    '<p>The surplus is remarkably constant at <b>1.6–1.8 m</b> across everything from a supermini to a '+
+    'long-wheelbase van. A big car does not need proportionally more room — it needs about the same '+
+    'extra metre and three quarters.</p>';
+}
+var _msCache={};
+/* Smallest slot this car can take in ONE manoeuvre, measured the way the rig
+   actually stages it: each candidate angle gets ITS OWN canonical start pose at
+   the current lateral offset. A fixed 45-degree start understates the car by ~10 cm,
+   which showed up as a slot the gap readout called legal and the band called empty. */
+function minSlot(){
+  var key=[CAR.L,CAR.W,CAR.p,CAR.rear,CAR.R,S.out].join('|');   // keyed on geometry, not on the selector index
+  if(_msCache[key]!==undefined) return _msCache[key];
+  var lo=CAR.L+0.2,hi=CAR.L+4.0,R=CAR.R,d=PW+S.out;
+  function startAt(t){
+    var r=Rad(t), s=(d-2*R*(1-Math.cos(r)))/Math.sin(r); if(s<0)s=0;
+    return [CAR.rear+0.30+2*R*Math.sin(r)+s*Math.cos(r), targetY()+d, 0];
+  }
+  function ok(sl){
+    for(var i=16;i<=64;i++){
+      var st=startAt(i), p=planCanonical(st,sl,i,true); if(!p) continue;
+      if(scoreTraj(simulate(st,p.segs,sl),sl,targetY()).ok) return true;
+    }
+    return false;
+  }
+  if(!ok(hi)) return (_msCache[key]=hi);
+  for(var i=0;i<14;i++){var m=(lo+hi)/2; if(ok(m))hi=m;else lo=m;}
+  return (_msCache[key]=hi);
+}
+
+/* ---------------- boot ---------------- */
+applyCar(); reset(); paintRail(); syncKnobs();
+setPrev(S.showPreview); setHint(S.showHint); setRot(S.rot); setEnv(S.env); setBand(S.band);
+// the per-preset minimum-slot table is a bisection over 7 cars — build it only when opened
+(function(){
+  var d=[].slice.call(document.querySelectorAll('#more details')).pop(), built=false;
+  d.addEventListener('toggle',function(){ if(d.open&&!built){built=true;fillCarTable();} });
+})();
+window.addEventListener('resize',function(){fitView();});
+stage.addEventListener('pointerdown',function(){stage.focus();});
+stage.focus();
+requestAnimationFrame(loop);
+</script></body></html>
